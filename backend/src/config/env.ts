@@ -20,6 +20,9 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  DATABASE_URL: z
+    .string({ error: 'is required (Neon pooled connection string)' })
+    .regex(/^postgres(ql)?:\/\//, 'must start with postgres:// or postgresql://'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -28,7 +31,9 @@ if (!parsed.success) {
   const problems = parsed.error.issues
     .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
     .join('\n');
-  console.error(`Invalid environment configuration:\n${problems}`);
+  console.error(
+    `Invalid environment configuration:\n${problems}\nSee backend/.env.example for the expected variables.`,
+  );
   process.exit(1);
 }
 
