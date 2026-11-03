@@ -7,13 +7,27 @@ import { logger } from '../lib/logger.js';
 
 type ErrorBody = { error: { code: string; message: string; details?: ErrorDetail[] } };
 
-function isBodyParseError(err: unknown): boolean {
-  return (
-    err instanceof SyntaxError &&
-    typeof err === 'object' &&
-    'type' in err &&
-    err.type === 'entity.parse.failed'
-  );
+type ClientError = { status: number; code: string; message: string };
+
+/** Maps errors raised by Express's JSON body parser (they carry a `type`) to client errors. */
+function toBodyParserError(err: unknown): ClientError | null {
+  if (typeof err !== 'object' || err === null || !('type' in err)) return null;
+
+  switch (err.type) {
+    case 'entity.parse.failed':
+      return { status: 400, code: 'INVALID_JSON', message: 'Request body is not valid JSON' };
+    case 'entity.too.large':
+      return { status: 413, code: 'PAYLOAD_TOO_LARGE', message: 'Request body is too large' };
+    case 'encoding.unsupported':
+    case 'charset.unsupported':
+      return { status: 415, code: 'UNSUPPORTED_ENCODING', message: 'Unsupported body encoding' };
+    default: {
+      const status = 'status' in err && typeof err.status === 'number' ? err.status : 0;
+      return status >= 400 && status < 500
+        ? { status, code: 'BAD_REQUEST', message: 'The request body could not be read' }
+        : null;
+    }
+  }
 }
 
 /** Converts any thrown error into the standard `{ error: { code, message, details } }` response. */
@@ -39,9 +53,10 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next)
     return;
   }
 
-  if (isBodyParseError(err)) {
-    res.status(400).json({
-      error: { code: 'INVALID_JSON', message: 'Request body is not valid JSON' },
+  const clientError = toBodyParserError(err);
+  if (clientError) {
+    res.status(clientError.status).json({
+      error: { code: clientError.code, message: clientError.message },
     } satisfies ErrorBody);
     return;
   }

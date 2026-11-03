@@ -10,14 +10,16 @@ This document is the agreement between backend and frontend. Each backend featur
 - **Success:** `{ "data": <object | array>, "meta"?: { "page", "pageSize", "total" } }`. `meta` appears only on paginated lists.
 - **Error:** `{ "error": { "code": "<STABLE_CODE>", "message": "<human readable>", "details"?: [{ "path", "message" }] } }`
 
-| Status | Code | When |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Params, query or body failed validation (`details` lists each field) |
-| 400 | `INVALID_JSON` | Body is not valid JSON |
-| 404 | `ROUTE_NOT_FOUND` | No such endpoint |
-| 404 | `NOT_FOUND` | Resource does not exist |
-| 409 | `CONFLICT` | Invalid state transition (for example, approving an already approved recommendation) |
-| 500 | `INTERNAL_ERROR` | Unexpected server error |
+| Status | Code                   | When                                                                                 |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
+| 400    | `VALIDATION_ERROR`     | Params, query or body failed validation (`details` lists each field)                 |
+| 400    | `INVALID_JSON`         | Body is not valid JSON                                                               |
+| 404    | `ROUTE_NOT_FOUND`      | No such endpoint                                                                     |
+| 404    | `NOT_FOUND`            | Resource does not exist                                                              |
+| 409    | `CONFLICT`             | Invalid state transition (for example, approving an already approved recommendation) |
+| 413    | `PAYLOAD_TOO_LARGE`    | JSON body larger than 100 KB                                                         |
+| 415    | `UNSUPPORTED_ENCODING` | Body uses an unsupported charset or encoding                                         |
+| 500    | `INTERNAL_ERROR`       | Unexpected server error                                                              |
 
 - No authentication in the MVP. Write actions take a `reviewerName` in the body where a person is recorded.
 - CORS allows the origins in `CORS_ORIGIN` (default `http://localhost:3000`).
