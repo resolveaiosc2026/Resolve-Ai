@@ -28,7 +28,9 @@ This document is the agreement between backend and frontend. Each backend featur
 
 ### `GET /health`
 
-Liveness check.
+Liveness and database reachability.
+
+**200**: API and database are up:
 
 ```json
 {
@@ -37,7 +39,23 @@ Liveness check.
     "service": "resolve-ai-backend",
     "environment": "development",
     "uptimeSeconds": 42,
-    "timestamp": "2026-11-03T15:19:09.881Z"
+    "timestamp": "2026-11-03T15:19:09.881Z",
+    "database": { "status": "up", "latencyMs": 38 }
+  }
+}
+```
+
+**503**: API is running but the database is unreachable (same shape, `data` not `error`, so the UI can show a banner):
+
+```json
+{
+  "data": {
+    "status": "degraded",
+    "service": "resolve-ai-backend",
+    "environment": "development",
+    "uptimeSeconds": 42,
+    "timestamp": "2026-11-03T15:19:09.881Z",
+    "database": { "status": "down" }
   }
 }
 ```
