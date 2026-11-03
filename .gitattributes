@@ -1,0 +1,10 @@
+# Store and check out text files with LF on every OS (avoids CRLF noise on Windows).
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

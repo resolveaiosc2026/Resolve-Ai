@@ -153,7 +153,7 @@ One feature = one branch → one PR into `main`. The demo journey is complete at
 
 | # | Feature | Delivers | Endpoints (`/api/v1`) |
 |---|---|---|---|
-| F0 | **Foundation** | TS + Express 5, env validation, error/404 handling, logger, lint/format, `.env.example`, backend README | `GET /health` |
+| F0 | **Foundation** | TS + Express 5, env validation, error/404 handling, logger, CORS for the frontend origin, lint/format, `.env.example`, backend README | `GET /health` |
 | F1 | **Database & schema** | Neon + Drizzle, all tables, first migration; update `docs/erd.md` + ERD image | — |
 | F2 | **Synthetic data** | Reproducible seed: USD and LRD bundle catalog, ~500 customers, 90 days of activations, network incidents, inbound feedback (customer service, Facebook), informal reply library; `npm run db:seed` | — |
 | F3 | **Detect** | Baseline (days 31–90) vs current (last 30) metrics, signals, priority score + level | `GET /customers`, `GET /customers/:id`, `GET /risk`, `GET /risk/:customerId`, `GET /segments`, `GET /segments/:id` |
