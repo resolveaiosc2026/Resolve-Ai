@@ -1,0 +1,34 @@
+{
+  "reasons": [
+    {
+      "id": "affordability",
+      "label": "Affordability",
+      "icon": "wallet"
+    },
+    {
+      "id": "reduced_need",
+      "label": "Reduced need",
+      "icon": "arrow-down"
+    },
+    {
+      "id": "competitor",
+      "label": "Competitor",
+      "icon": "swap"
+    },
+    {
+      "id": "network_quality",
+      "label": "Network quality",
+      "icon": "signal-slash"
+    },
+    {
+      "id": "activation_difficulty",
+      "label": "Activation difficulty",
+      "icon": "cursor-alert"
+    },
+    {
+      "id": "unknown",
+      "label": "Unknown",
+      "icon": "question"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "run_id": "RUN-2026-10-28-01",
+  "run_at": "2026-10-28 08:00",
+  "window_days": 28,
+  "subscribers_scored": 41820,
+  "flagged_total": 1284,
+  "risk_bands": {
+    "high": 312,
+    "medium": 541,
+    "low": 431
+  },
+  "awaiting_reply": 463,
+  "ready_for_action": 218,
+  "actions_awaiting_approval": 47,
+  "minimum_days_inactive": 19,
+  "pilot_sample_size": 45,
+  "pilot_window_days": 21,
+  "churned_case_ids": [
+    "LR-00714",
+    "LR-21699",
+    "LR-23553"
+  ],
+  "margin_impact_change_pct": 0,
+  "approvals_this_week": 2,
+  "note": "Population counts are synthetic. The workbench reviews the pilot sample."
+}

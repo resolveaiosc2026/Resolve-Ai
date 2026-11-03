@@ -1,0 +1,122 @@
+{
+  "outcomes": [
+    {
+      "intervention_id": "INT-4100",
+      "case_id": "LR-10168",
+      "window_days": 30,
+      "measured_at": "2026-10-22 08:00",
+      "activations_after": 3,
+      "baseline_activations": 9,
+      "recovered": false,
+      "note": "Usage stayed near the flagged level through the 30-day window."
+    },
+    {
+      "intervention_id": "INT-4101",
+      "case_id": "LR-19076",
+      "window_days": 30,
+      "measured_at": "2026-10-24 08:00",
+      "activations_after": 15,
+      "baseline_activations": 16,
+      "recovered": true,
+      "note": "Usage returned within 5% of the customer's own baseline."
+    },
+    {
+      "intervention_id": "INT-4102",
+      "case_id": "LR-23736",
+      "window_days": 30,
+      "measured_at": "2026-10-26 08:00",
+      "activations_after": 5,
+      "baseline_activations": 17,
+      "recovered": false,
+      "note": "Usage stayed near the flagged level through the 30-day window."
+    },
+    {
+      "intervention_id": "INT-4103",
+      "case_id": "LR-23334",
+      "window_days": 30,
+      "measured_at": "2026-10-28 08:00",
+      "activations_after": 2,
+      "baseline_activations": 5,
+      "recovered": false,
+      "note": "Usage stayed near the flagged level through the 30-day window."
+    },
+    {
+      "intervention_id": "INT-4104",
+      "case_id": "LR-27384",
+      "window_days": 30,
+      "measured_at": "2026-10-30 08:00",
+      "activations_after": 17,
+      "baseline_activations": 18,
+      "recovered": true,
+      "note": "Usage returned within 5% of the customer's own baseline."
+    },
+    {
+      "intervention_id": "INT-4105",
+      "case_id": "LR-20082",
+      "window_days": 30,
+      "measured_at": "2026-11-01 08:00",
+      "activations_after": 2,
+      "baseline_activations": 5,
+      "recovered": false,
+      "note": "Usage stayed near the flagged level through the 30-day window."
+    }
+  ],
+  "control_cohort": [
+    {
+      "id": "CTL-900",
+      "matched_case_id": "LR-28080",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": true
+    },
+    {
+      "id": "CTL-901",
+      "matched_case_id": "LR-26878",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": false
+    },
+    {
+      "id": "CTL-902",
+      "matched_case_id": "LR-21699",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": false
+    },
+    {
+      "id": "CTL-903",
+      "matched_case_id": "LR-23187",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": false
+    },
+    {
+      "id": "CTL-904",
+      "matched_case_id": "LR-28489",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": true
+    },
+    {
+      "id": "CTL-905",
+      "matched_case_id": "LR-22187",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": false
+    },
+    {
+      "id": "CTL-906",
+      "matched_case_id": "LR-20575",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": false
+    },
+    {
+      "id": "CTL-907",
+      "matched_case_id": "LR-20300",
+      "tolerance_pct": 5,
+      "window_days": 30,
+      "recovered": false
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "campaigns": [
+    {
+      "reason": "affordability",
+      "action_id": "daily_mini_600",
+      "recovery_rate": 0.62,
+      "n": 214
+    },
+    {
+      "reason": "affordability",
+      "action_id": "monthly_mini_2g",
+      "recovery_rate": 0.41,
+      "n": 168
+    },
+    {
+      "reason": "affordability",
+      "action_id": "competitor_match",
+      "recovery_rate": 0.35,
+      "n": 52
+    },
+    {
+      "reason": "network_quality",
+      "action_id": "care_bridge",
+      "recovery_rate": 0.44,
+      "n": 96
+    },
+    {
+      "reason": "activation_difficulty",
+      "action_id": "ussd_guide",
+      "recovery_rate": 0.52,
+      "n": 131
+    },
+    {
+      "reason": "reduced_need",
+      "action_id": "reduced_need_checkin",
+      "recovery_rate": 0.28,
+      "n": 74
+    },
+    {
+      "reason": "competitor",
+      "action_id": "competitor_match",
+      "recovery_rate": 0.3,
+      "n": 61
+    },
+    {
+      "reason": "unknown",
+      "action_id": "reduced_need_checkin",
+      "recovery_rate": 0.22,
+      "n": 40
+    }
+  ]
+}

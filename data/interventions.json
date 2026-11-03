@@ -1,0 +1,76 @@
+{
+  "interventions": [
+    {
+      "id": "INT-4100",
+      "case_id": "LR-10168",
+      "action_id": "care_bridge",
+      "channel": "Call centre",
+      "drafted_at": "2026-09-22 05:00",
+      "approved_by": "analyst.hui",
+      "approved_at": "2026-09-22 06:00",
+      "sent_at": "2026-09-22 08:00",
+      "delivered": true,
+      "click_recorded": true
+    },
+    {
+      "id": "INT-4101",
+      "case_id": "LR-19076",
+      "action_id": "daily_mini_600",
+      "channel": "Orange SMS",
+      "drafted_at": "2026-09-24 05:00",
+      "approved_by": "analyst.hui",
+      "approved_at": "2026-09-24 06:00",
+      "sent_at": "2026-09-24 08:00",
+      "delivered": true,
+      "click_recorded": false
+    },
+    {
+      "id": "INT-4102",
+      "case_id": "LR-23736",
+      "action_id": "daily_mini_600",
+      "channel": "Orange SMS",
+      "drafted_at": "2026-09-26 05:00",
+      "approved_by": "analyst.hui",
+      "approved_at": "2026-09-26 06:00",
+      "sent_at": "2026-09-26 08:00",
+      "delivered": true,
+      "click_recorded": false
+    },
+    {
+      "id": "INT-4103",
+      "case_id": "LR-23334",
+      "action_id": "daily_mini_600",
+      "channel": "Orange SMS",
+      "drafted_at": "2026-09-28 05:00",
+      "approved_by": "analyst.hui",
+      "approved_at": "2026-09-28 06:00",
+      "sent_at": "2026-09-28 08:00",
+      "delivered": false,
+      "click_recorded": true
+    },
+    {
+      "id": "INT-4104",
+      "case_id": "LR-27384",
+      "action_id": "daily_mini_600",
+      "channel": "Orange SMS",
+      "drafted_at": "2026-09-30 05:00",
+      "approved_by": "analyst.hui",
+      "approved_at": "2026-09-30 06:00",
+      "sent_at": "2026-09-30 08:00",
+      "delivered": true,
+      "click_recorded": false
+    },
+    {
+      "id": "INT-4105",
+      "case_id": "LR-20082",
+      "action_id": "daily_mini_600",
+      "channel": "Orange SMS",
+      "drafted_at": "2026-10-02 05:00",
+      "approved_by": "analyst.hui",
+      "approved_at": "2026-10-02 06:00",
+      "sent_at": "2026-10-02 08:00",
+      "delivered": true,
+      "click_recorded": false
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "resolve-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Resolve AI — Retention Workbench (Orange Summer Challenge MVP, synthetic data only)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "data": "node scripts/generate-data.mjs"
+  },
+  "dependencies": {
+    "next": "16.4.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "actions": [
+    {
+      "id": "daily_mini_600",
+      "name": "Daily Mini 600 MB for $0.60",
+      "short_name": "Daily Mini 600 MB",
+      "price_usd": 0.6,
+      "size_mb": 600,
+      "validity_hours": 24,
+      "reasons": [
+        "affordability"
+      ],
+      "mismatch_note": "",
+      "predicted_recovery": 0.62,
+      "channel": "Orange SMS",
+      "window": "Today 16:00–18:00",
+      "body": "Orange: Daily Mini 600 MB for $0.60, valid 24 hours. Reply YES to confirm. No change to your current plan. T&C apply.",
+      "eligibility": [
+        {
+          "code": "plan_active",
+          "label": "Plan is active"
+        },
+        {
+          "code": "no_discount_30d",
+          "label": "No discount offer used in the last 30 days"
+        },
+        {
+          "code": "regional_stock",
+          "label": "Daily Mini is available in this region"
+        },
+        {
+          "code": "confidence_gate",
+          "label": "Reason confidence is above the 80% review threshold"
+        }
+      ]
+    },
+    {
+      "id": "monthly_mini_2g",
+      "name": "Monthly Mini 2 GB for $1.80",
+      "short_name": "Monthly Mini 2 GB",
+      "price_usd": 1.8,
+      "size_mb": 2048,
+      "validity_hours": 720,
+      "reasons": [
+        "affordability"
+      ],
+      "mismatch_note": "A larger bundle at a higher price than the customer is buying now.",
+      "predicted_recovery": 0.41,
+      "channel": "Orange SMS",
+      "window": "Today 16:00–18:00",
+      "body": "Orange: Monthly Mini 2 GB for $1.80, valid 30 days. Reply YES to confirm. T&C apply.",
+      "eligibility": [
+        {
+          "code": "plan_active",
+          "label": "Plan is active"
+        },
+        {
+          "code": "no_discount_30d",
+          "label": "No discount offer used in the last 30 days"
+        },
+        {
+          "code": "affordability_cap",
+          "label": "Offer stays under the $2.00 pilot price cap"
+        }
+      ]
+    },
+    {
+      "id": "care_bridge",
+      "name": "Call-centre bridge to the network team",
+      "short_name": "Call-centre bridge",
+      "price_usd": 0,
+      "size_mb": 0,
+      "validity_hours": 0,
+      "reasons": [
+        "network_quality"
+      ],
+      "mismatch_note": "No network fault was reported for this customer in the last 30 days.",
+      "predicted_recovery": 0.44,
+      "channel": "Call centre",
+      "window": "Next care shift 09:00–11:00",
+      "body": "Ticket raised for the network operations team. No customer message sent.",
+      "eligibility": [
+        {
+          "code": "fault_reported",
+          "label": "A network fault was reported or detected"
+        },
+        {
+          "code": "plan_active",
+          "label": "Plan is active"
+        }
+      ]
+    },
+    {
+      "id": "ussd_guide",
+      "name": "USSD navigation guide with a direct activation code",
+      "short_name": "USSD guide",
+      "price_usd": 0,
+      "size_mb": 0,
+      "validity_hours": 0,
+      "reasons": [
+        "activation_difficulty"
+      ],
+      "mismatch_note": "The customer already activates bundles without support.",
+      "predicted_recovery": 0.52,
+      "channel": "Orange SMS",
+      "window": "Today 16:00–18:00",
+      "body": "Orange: To buy the bundle you used before, dial *144*2*3*1# or reply HELP.",
+      "eligibility": [
+        {
+          "code": "prior_activation",
+          "label": "Customer activated this bundle before"
+        },
+        {
+          "code": "plan_active",
+          "label": "Plan is active"
+        }
+      ]
+    },
+    {
+      "id": "competitor_match",
+      "name": "Price-match offer against the other network",
+      "short_name": "Price-match offer",
+      "price_usd": 0.55,
+      "size_mb": 600,
+      "validity_hours": 24,
+      "reasons": [
+        "competitor"
+      ],
+      "mismatch_note": "Needs a pricing approval outside the pilot, and cuts margin for a reseller who sets their own price.",
+      "predicted_recovery": 0.3,
+      "channel": "Orange SMS",
+      "window": "Today 16:00–18:00",
+      "body": "Orange: We can match your usual bundle price for 30 days. Reply YES to confirm.",
+      "eligibility": [
+        {
+          "code": "pricing_approval",
+          "label": "Requires a pricing approval outside the pilot"
+        },
+        {
+          "code": "plan_active",
+          "label": "Plan is active"
+        }
+      ]
+    },
+    {
+      "id": "reduced_need_checkin",
+      "name": "Reduced-need check-in call",
+      "short_name": "Check-in call",
+      "price_usd": 0,
+      "size_mb": 0,
+      "validity_hours": 0,
+      "reasons": [
+        "reduced_need"
+      ],
+      "mismatch_note": "The reply describes cost, not a seasonal change in need.",
+      "predicted_recovery": 0.28,
+      "channel": "Call centre",
+      "window": "Next care shift 09:00–11:00",
+      "body": "Care agent confirms the change is seasonal and closes the case without an offer.",
+      "eligibility": [
+        {
+          "code": "consent_call",
+          "label": "Customer consented to a care call"
+        },
+        {
+          "code": "plan_active",
+          "label": "Plan is active"
+        }
+      ]
+    }
+  ]
+}
