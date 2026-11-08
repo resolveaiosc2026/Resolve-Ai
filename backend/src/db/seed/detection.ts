@@ -1,20 +1,16 @@
 /**
  * Detection rows for the historical run: the run itself, per-customer metrics
- * (baseline + current) and one case per customer, all computed with the shared
- * Detect scoring module from the generated behaviour.
+ * (baseline + current) and one case per customer. Computed with the SAME
+ * `detectCustomer` the live detection service uses, so seed and API never drift.
  */
 import { randomUUID } from 'node:crypto';
 
 import { DETECTION } from '../../config/rules.js';
-import {
-  scorePriority,
-  summarizeActivations,
-  summarizeUsage,
-  type UsageSummary,
-} from '../../modules/detect/scoring.js';
+import { detectCustomer, toMetricRows } from '../../modules/detect/detection.compute.js';
+import type { UsageSummary } from '../../modules/detect/scoring.js';
 import type { cases, customerMetrics, detectionRuns } from '../schema/index.js';
 import type { CustomerBehaviour } from './behaviour.js';
-import { DAY_MS, RUN_DATE, parseStamp, type PilotDataset } from './pilot-dataset.js';
+import { RUN_DATE, parseStamp, type PilotDataset } from './pilot-dataset.js';
 
 type Row<T extends { $inferInsert: unknown }> = T['$inferInsert'];
 
@@ -32,7 +28,7 @@ export function buildDetection(
 ): DetectionRows {
   const r = data.run;
   const runId = r.run_id;
-  const runAt = new Date(RUN_DATE);
+  const asOf = new Date(RUN_DATE);
   const rows: DetectionRows = {
     run: {
       id: runId,
@@ -64,80 +60,47 @@ export function buildDetection(
     usageByCustomer: new Map(),
   };
 
-  const currentFrom = new Date(RUN_DATE - DETECTION.activationCurrentDays * DAY_MS);
-  const baselineFrom = new Date(currentFrom.getTime() - DETECTION.activationBaselineDays * DAY_MS);
-  const baselineMonths = DETECTION.activationBaselineDays / DETECTION.activationCurrentDays;
-
   for (const c of data.customers) {
     const b = behaviour.get(c.id);
-    if (!b) throw new Error(`No behaviour for ${c.id}`);
+    const activity = data.activity[c.id];
+    if (!b || !activity) throw new Error(`No behaviour for ${c.id}`);
 
-    const usage = summarizeUsage(b.weeklyGb);
-    const baseline = summarizeActivations(b.events, {
-      from: baselineFrom,
-      to: currentFrom,
-      months: baselineMonths,
-    });
-    const current = summarizeActivations(b.events, { from: currentFrom, to: runAt, months: 1 });
-    const careContacts30d = b.careContactTimes.length;
-    const networkFaultReports30d = b.faultReportTimes.length;
+    const lastActivityAt = b.events
+      .filter((e) => e.status === 'success' && e.activatedAt <= asOf)
+      .reduce<Date | null>(
+        (last, e) => (!last || e.activatedAt > last ? e.activatedAt : last),
+        null,
+      );
 
-    rows.metrics.push(
+    const d = detectCustomer(
       {
-        runId,
         customerId: c.id,
-        period: 'baseline',
-        activations: baseline.activations,
-        dataGb: usage.baselineGb,
-        spendUsd: baseline.spendUsd,
-        spendLrd: baseline.spendLrd,
-        spendUsdEquivalent: baseline.spendUsdEquivalent,
-        activeDays: baseline.activeDays,
-        failedActivationRate: baseline.failedActivationRate,
-        daysSinceLastActivity: baseline.daysSinceLastActivity,
-        careContacts30d: 0,
-        networkFaultReports30d: 0,
-      },
-      {
-        runId,
-        customerId: c.id,
-        period: 'current',
-        activations: current.activations,
-        dataGb: usage.currentGb,
-        spendUsd: current.spendUsd,
-        spendLrd: current.spendLrd,
-        spendUsdEquivalent: current.spendUsdEquivalent,
-        activeDays: current.activeDays,
-        failedActivationRate: current.failedActivationRate,
-        daysSinceLastActivity: current.daysSinceLastActivity,
-        careContacts30d,
-        networkFaultReports30d,
-      },
-    );
-
-    const priority = scorePriority(
-      {
         segment: c.segment,
         valueTier: c.value_tier.toLowerCase() as 'high' | 'medium' | 'low',
         tenureMonths: c.tenure_months,
-        daysSinceLastActivity: current.daysSinceLastActivity,
-        careContacts30d,
+        weekly: activity.weeks.map((w) => ({ weekStart: w.week_start, gb: w.gb })),
+        events: b.events,
+        lastActivityAt,
+        careContactTimes: b.careContactTimes,
+        faultReportTimes: b.faultReportTimes,
       },
-      usage,
+      asOf,
     );
+
+    rows.metrics.push(...toMetricRows(runId, d));
 
     const caseId = randomUUID();
     rows.caseIdByCustomer.set(c.id, caseId);
-    rows.usageByCustomer.set(c.id, usage);
+    rows.usageByCustomer.set(c.id, d.usage);
     rows.cases.push({
       id: caseId,
       customerId: c.id,
       runId,
       flaggedAt: parseStamp(c.flagged_at),
-      changePct: usage.changePct,
-      priorityScore: priority.total,
-      priorityBand: priority.band,
-      contributions: priority.contributions,
+      changePct: d.usage.changePct,
+      priorityScore: d.priority.total,
+      priorityBand: d.priority.band,
+      contributions: d.priority.contributions,
       modelVersion: DETECTION.modelVersion,
       queueStatus: c.queue_status,
     });
