@@ -22,7 +22,11 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   DATABASE_URL: z
     .string({ error: 'is required (Neon pooled connection string)' })
-    .regex(/^postgres(ql)?:\/\//, 'must start with postgres:// or postgresql://'),
+    .regex(/^postgres(ql)?:\/\//, 'must start with postgres:// or postgresql://')
+    .refine(
+      (url) => !url.includes('ep-example-pooler'),
+      'is still the placeholder from .env.example; paste your Neon pooled connection string',
+    ),
 });
 
 const parsed = envSchema.safeParse(process.env);
