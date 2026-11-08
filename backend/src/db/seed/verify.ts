@@ -3,8 +3,11 @@
  * frontend quotes (frontend/scripts/verify-anchors.mjs), plus generator parity.
  * Exit code 0 only when every check passes.
  */
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { TransactionRollbackError, and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm';
 
+import { detectCustomer, detectionWindows } from '../../modules/detect/detection.compute.js';
+import { loadDetectionSignals } from '../../modules/detect/detect.repository.js';
+import { executeDetection, type RunSummary } from '../../modules/detect/detect.service.js';
 import { summarizeUsage } from '../../modules/detect/scoring.js';
 import { closeDatabase, db } from '../client.js';
 import {
@@ -206,8 +209,12 @@ async function main(): Promise<void> {
     '3/3',
   );
 
-  // 9. Synthetic population figures.
-  const [run] = await db.select().from(detectionRuns).limit(1);
+  // 9. Synthetic population figures (on the seeded run, not on later re-runs).
+  const [run] = await db
+    .select()
+    .from(detectionRuns)
+    .where(isNotNull(detectionRuns.populationSummary))
+    .limit(1);
   const pop = run?.populationSummary;
   check('flagged population', pop?.flaggedTotal, 1284);
   check(
@@ -215,6 +222,65 @@ async function main(): Promise<void> {
     pop ? pop.riskBands.high + pop.riskBands.medium + pop.riskBands.low : null,
     1284,
   );
+
+  // 10. F3: the live detection service reproduces every seeded case from raw data.
+  if (!run) throw new Error('Seeded detection run not found');
+  const asOf = run.runAt;
+  const seededCases = await db.select().from(cases);
+  const detections = (await loadDetectionSignals(db, detectionWindows(asOf))).map((s) =>
+    detectCustomer(s, asOf),
+  );
+  const drift = seededCases.filter((c) => {
+    const d = detections.find((x) => x.customerId === c.customerId);
+    return (
+      !d ||
+      !d.flagged ||
+      d.priority.total !== c.priorityScore ||
+      d.priority.band !== c.priorityBand ||
+      d.usage.changePct !== c.changePct
+    );
+  });
+  check(
+    'detection from raw data reproduces all cases',
+    drift.map((c) => c.customerId),
+    [],
+  );
+
+  // 11. F3: a full re-run (rolled back) updates scores but never queue status.
+  const runsBefore = await db.$count(detectionRuns);
+  type Snapshot = { id: string; status: string; score: number }[];
+  let rerun: { summary: RunSummary; before: Snapshot; after: Snapshot } | undefined;
+  const snapshot = (rows: { id: string; queueStatus: string; priorityScore: number }[]) =>
+    rows
+      .map((r) => ({ id: r.id, status: r.queueStatus, score: r.priorityScore }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  try {
+    await db.transaction(async (tx) => {
+      const before = snapshot(await tx.select().from(cases));
+      const summary = await executeDetection(tx, asOf);
+      const after = snapshot(await tx.select().from(cases));
+      rerun = { summary, before, after };
+      tx.rollback();
+    });
+  } catch (err) {
+    if (!(err instanceof TransactionRollbackError)) throw err;
+  }
+  check(
+    're-run updates all open cases, creates none',
+    [rerun?.summary.updatedCases, rerun?.summary.newCases],
+    [45, 0],
+  );
+  check(
+    're-run keeps every queue status',
+    rerun?.after.map((r) => r.status),
+    rerun?.before.map((r) => r.status),
+  );
+  check(
+    're-run keeps every priority',
+    rerun?.after.map((r) => r.score),
+    rerun?.before.map((r) => r.score),
+  );
+  check('re-run rolled back (no run left behind)', await db.$count(detectionRuns), runsBefore);
 }
 
 main()
