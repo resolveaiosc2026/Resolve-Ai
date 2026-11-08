@@ -85,17 +85,36 @@ src/
   server.ts         # starts the HTTP server, graceful shutdown
   routes.ts         # mounts feature modules under /api/v1
   config/env.ts     # Zod-validated environment
+  config/rules.ts   # tunable rules: windows, weights, thresholds, FX rate, channels
   db/client.ts      # Postgres pool + Drizzle instance + health check
   db/schema/        # tables by loop area: catalog, customers, detect, understand, act
+  db/seed/          # synthetic pilot dataset (db:seed) and verification (db:verify)
   lib/              # logger, HttpError helpers
   middleware/       # request logger, 404, error handler
   modules/<feature>/<feature>.routes.ts | .service.ts | .repository.ts
 ```
 
-Routes stay thin (HTTP only), services hold business logic, repositories hold database queries.
+Routes stay thin (HTTP only), services hold business logic, repositories hold database queries. Pure, deterministic logic (scoring, detection, classification) lives in its own files (`detect/scoring.ts`, `detect/detection.compute.ts`, `understand/keyword-classifier.ts`) and is shared by the API and the seed.
+
+## Endpoints
+
+Full contract with examples: [`docs/api-contract.md`](../docs/api-contract.md).
+
+| Method | Path                            | Purpose                                         |
+| ------ | ------------------------------- | ----------------------------------------------- |
+| GET    | `/api/v1/health`                | Liveness + database status                      |
+| GET    | `/api/v1/risk`                  | Priority queue (filters, paging)                |
+| GET    | `/api/v1/risk/summary`          | Detect KPIs and risk distribution               |
+| GET    | `/api/v1/risk/:customerId`      | One queue row                                   |
+| GET    | `/api/v1/customers`             | Customer list                                   |
+| GET    | `/api/v1/customers/:id`         | Customer 360 (usage, priority, monthly metrics) |
+| GET    | `/api/v1/segments`              | Priority bands + breakdown by customer segment  |
+| GET    | `/api/v1/segments/:band`        | Queue rows for one band                         |
+| GET    | `/api/v1/detection-runs/latest` | Latest detection run                            |
+| POST   | `/api/v1/detection-runs`        | Re-run detection from stored behaviour          |
 
 ## Conventions
 
 - Responses: `{ "data": ... }` on success, `{ "error": { "code", "message", "details?" } }` on failure.
 - Throw `HttpError` (or the `badRequest` / `notFound` / `conflict` helpers); the error handler formats it. Zod validation errors become `400 VALIDATION_ERROR` automatically.
-- Branches `feat/backend-<feature>`, Conventional Commits (`feat(detect): ...`, `docs(api): ...`).
+- Work on `main`; Conventional Commits (`feat(detect): ...`, `docs(api): ...`).
