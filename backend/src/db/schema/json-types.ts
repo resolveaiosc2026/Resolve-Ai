@@ -31,8 +31,18 @@ export type ActionAlternative = {
 
 /** Synthetic population figures for a detection run (the wide screen, not the pilot sample). */
 export type PopulationSummary = {
+  windowDays: number;
   subscribersScored: number;
   flaggedTotal: number;
   riskBands: { high: number; medium: number; low: number };
+  awaitingReply: number;
+  readyForAction: number;
+  actionsAwaitingApproval: number;
+  minimumDaysInactive: number;
+  pilotSampleSize: number;
+  pilotWindowDays: number;
+  churnedCustomerIds: string[];
+  marginImpactChangePct: number;
+  approvalsThisWeek: number;
   simulated: true;
 };

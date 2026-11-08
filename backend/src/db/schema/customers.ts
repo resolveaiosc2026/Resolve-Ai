@@ -1,4 +1,14 @@
-import { index, integer, numeric, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  date,
+  index,
+  integer,
+  numeric,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { bundles } from './catalog.js';
 import { activationStatusEnum, currencyEnum, faultSourceEnum, valueTierEnum } from './enums.js';
@@ -17,6 +27,22 @@ export const customers = pgTable('customers', {
   scenario: text(),
   createdAt: timestamptz().notNull().defaultNow(),
 });
+
+/**
+ * Data consumed per week (GB). A separate signal from purchases: a customer keeps
+ * using data from bundles bought earlier, so usage cannot be derived from activations.
+ */
+export const customerWeeklyUsage = pgTable(
+  'customer_weekly_usage',
+  {
+    customerId: text()
+      .notNull()
+      .references(() => customers.id, { onDelete: 'cascade' }),
+    weekStart: date({ mode: 'string' }).notNull(),
+    dataGb: numeric({ precision: 6, scale: 2, mode: 'number' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.customerId, t.weekStart] })],
+);
 
 /** One row per bundle purchase attempt: the raw behavioral signal Detect works from. */
 export const bundleActivations = pgTable(
