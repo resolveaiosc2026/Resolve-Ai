@@ -14,6 +14,10 @@ export const DETECTION = {
   /** Activation windows: last 30 days vs the 60 days before (averaged per 30 days). */
   activationCurrentDays: 30,
   activationBaselineDays: 60,
+  /** A customer is flagged when usage changed by this much or more (negative = drop). */
+  flagThresholdPct: -15,
+  /** Care contacts and fault reports are counted over this many days before the run. */
+  signalWindowDays: 30,
 } as const;
 
 export const PRIORITY = {

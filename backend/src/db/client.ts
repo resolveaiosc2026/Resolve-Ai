@@ -19,6 +19,9 @@ pool.on('error', (err) => {
 
 export const db = drizzle({ client: pool, schema, casing: 'snake_case' });
 export type Database = typeof db;
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+/** Either the pool-backed `db` or an open transaction: repositories accept both. */
+export type Executor = Database | Transaction;
 
 export type DatabaseStatus = { status: 'up'; latencyMs: number } | { status: 'down' };
 
