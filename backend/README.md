@@ -18,10 +18,14 @@ See [`docs/backend-plan.md`](../docs/backend-plan.md) for scope and roadmap, and
 ```bash
 cd backend
 npm install
-cp .env.example .env   # then set DATABASE_URL to your Neon pooled connection string
-npm run db:migrate     # creates the tables in Neon
+cp -n .env.example .env   # FIRST SETUP ONLY (-n never overwrites an existing .env); then set DATABASE_URL
+npm run db:migrate        # creates the tables in Neon
+npm run db:seed           # loads the synthetic pilot dataset (wipes existing data)
+npm run db:verify         # checks the anchor figures; every line should say PASS
 npm run dev
 ```
+
+> Never re-copy `.env.example` over an existing `.env`: it replaces your real `DATABASE_URL` with the placeholder.
 
 The API listens on `http://localhost:4000/api/v1`. Check it with:
 
@@ -37,19 +41,29 @@ PostgreSQL on Neon, accessed through [Drizzle ORM](https://orm.drizzle.team). Th
 
 To change the schema: edit `src/db/schema/*`, run `npm run db:generate`, review the new SQL in `drizzle/`, then `npm run db:migrate`. Never edit an applied migration; generate a new one.
 
+### Synthetic data
+
+`npm run db:seed` loads a **synthetic** pilot dataset (no real Orange data) in one transaction: it truncates every table, then inserts. It is safe to re-run and refuses to run with `NODE_ENV=production` unless `--force` is passed.
+
+The dataset is a faithful port of the frontend generator (`frontend/scripts/generate-data.mjs`, seed `20261028`): the same 45 case IDs and figures, so the API reproduces what the UI shows. Purchase events, bundles (USD and LRD at a configured 190 LRD/USD) and care/fault rows come from a second seed so the original sequence is untouched.
+
+`npm run db:verify` checks the database against the frontend's anchor figures (e.g. `LR-20417`: 6.5 → 2.0 GB/month, −69%, priority 87) and, when `frontend/data/` is present, compares the ported generator with the frontend JSON field by field.
+
 ## Scripts
 
-| Script                            | What it does                                 |
-| --------------------------------- | -------------------------------------------- |
-| `npm run dev`                     | Start the API with auto-reload (tsx)         |
-| `npm run build`                   | Compile TypeScript to `dist/`                |
-| `npm start`                       | Run the compiled API from `dist/`            |
-| `npm run typecheck`               | Type-check without emitting                  |
-| `npm run lint`                    | ESLint                                       |
-| `npm run format` / `format:check` | Prettier write / check                       |
-| `npm run db:generate`             | Generate a SQL migration from schema changes |
-| `npm run db:migrate`              | Apply pending migrations to the database     |
-| `npm run db:studio`               | Browse the database in Drizzle Studio        |
+| Script                            | What it does                                     |
+| --------------------------------- | ------------------------------------------------ |
+| `npm run dev`                     | Start the API with auto-reload (tsx)             |
+| `npm run build`                   | Compile TypeScript to `dist/`                    |
+| `npm start`                       | Run the compiled API from `dist/`                |
+| `npm run typecheck`               | Type-check without emitting                      |
+| `npm run lint`                    | ESLint                                           |
+| `npm run format` / `format:check` | Prettier write / check                           |
+| `npm run db:generate`             | Generate a SQL migration from schema changes     |
+| `npm run db:migrate`              | Apply pending migrations to the database         |
+| `npm run db:studio`               | Browse the database in Drizzle Studio            |
+| `npm run db:seed`                 | Wipe and load the synthetic pilot dataset        |
+| `npm run db:verify`               | Check the seeded data against the anchor figures |
 
 ## Environment
 

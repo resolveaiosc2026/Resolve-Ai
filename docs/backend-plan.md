@@ -131,7 +131,7 @@ A **case** (one detection episode for a customer) is the central record, matchin
 | Area | Tables |
 |---|---|
 | Catalog | `reasons`, `bundles` (USD/LRD), `actions` (next-best-action library with eligibility rules), `action_reasons`, `campaign_history` (synthetic recovery rates) |
-| Detect inputs | `customers` (`LR-20417` style IDs, value tier, masked MSISDN), `bundle_activations` (one row per purchase, success/failed, currency), `network_faults` (customer reports and regional incidents) |
+| Detect inputs | `customers` (`LR-20417` style IDs, value tier, masked MSISDN), `customer_weekly_usage` (GB consumed per week, added in F2), `bundle_activations` (one row per purchase, success/failed, currency), `network_faults` (customer reports and regional incidents) |
 | Detect | `detection_runs`, `customer_metrics` (per run × customer × period: baseline/current/post-intervention), `cases` (priority score, contributions, queue status) |
 | Understand | `feedback_requests` (handed off to Orange channels), `customer_feedback`, `reason_classifications` (reason, confidence, alternatives, evidence, source, human review) |
 | Recommend / Act / Measure | `recommendations` (chosen action, eligibility checks, alternatives considered), `interventions` (`INT-4100` style references), `outcomes` (treated cases + matched control cohort) |
@@ -146,9 +146,9 @@ One feature = one branch → one PR into `main`. The demo journey is complete at
 | # | Feature | Delivers | Endpoints (`/api/v1`) |
 |---|---|---|---|
 | F0 | **Foundation** | TS + Express 5, env validation, error/404 handling, logger, CORS for the frontend origin, lint/format, `.env.example`, backend README | `GET /health` |
-| F1 | **Database & schema** | Neon + Drizzle, 17 tables, first migration, DB status in `/health`; Mermaid ERD in `docs/erd.md` | `GET /health` (adds `database`) |
-| F2 | **Synthetic data** | Reproducible seed reproducing the frontend's 45-case pilot sample (same IDs and anchor figures) as bundle activations in USD and LRD, plus network faults, feedback, action library, campaign history, pilot interventions, outcomes and controls; `npm run db:seed` | — |
-| F3 | **Detect** | Baseline (8 weeks) vs current (4 weeks) metrics, priority score + band, queue | `GET /customers`, `GET /customers/:id`, `GET /risk`, `GET /risk/:customerId`, `GET /segments`, `GET /segments/:id` |
+| F1 | **Database & schema** | Neon + Drizzle, 17 tables (18 after F2), first migration, DB status in `/health`; Mermaid ERD in `docs/erd.md` | `GET /health` (adds `database`) |
+| F2 | **Synthetic data** | Port of the frontend generator (same 45 IDs and figures, parity-checked), plus weekly usage, purchase events in USD and LRD, care contacts, fault reports, catalog, pilot history (feedback, classifications, interventions, treated outcomes, controls); `npm run db:seed`, `npm run db:verify`; shared scoring + keyword classifier modules | — |
+| F3 | **Detect** | Usage: baseline 8 weeks vs current 4 weeks (from `customer_weekly_usage`). Activations: last 30 days vs the 60 days before ÷ 2 (from `bundle_activations`). Priority score + band, queue | `GET /customers`, `GET /customers/:id`, `GET /risk`, `GET /risk/:customerId`, `GET /segments`, `GET /segments/:id` |
 | F4 | **Understand: evidence** | Evidence rules (failed activations, network incidents, trading down); weak or no evidence → `unknown` → feedback request suggested for prioritized customers | `GET /customers/:id/reasons`, `GET /feedback-requests` (queue) |
 | F5 | **Understand: channels & AI** | Hand off feedback requests to an Orange channel; ingest the replies the channel returns, plus inbound feedback; LLM classification + keyword fallback; human override. The simulation route plays Orange's channel returning a reply | `POST /customers/:id/feedback-requests`, `POST /feedback-requests/:id/responses`, `POST /feedback` (inbound), `PATCH /reasons/:id`, `POST /simulation/feedback-requests/:id/reply` |
 | F6 | **Recommend** | Rules: change + reason → action, rationale, objective, confidence | `GET /recommendations`, `GET /recommendations/:id`, `GET /customers/:id/insights` (Customer 360) |

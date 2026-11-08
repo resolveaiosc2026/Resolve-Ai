@@ -10,6 +10,7 @@ Organized by the loop **Detect → Understand → Recommend → Act → Measure 
 
 ```mermaid
 erDiagram
+    CUSTOMERS ||--o{ CUSTOMER_WEEKLY_USAGE : "uses data"
     CUSTOMERS ||--o{ BUNDLE_ACTIVATIONS : buys
     BUNDLES ||--o{ BUNDLE_ACTIVATIONS : "purchased as"
     CUSTOMERS ||--o{ NETWORK_FAULTS : reports
@@ -42,6 +43,11 @@ erDiagram
         value_tier value_tier
         int tenure_months
         text masked_msisdn
+    }
+    CUSTOMER_WEEKLY_USAGE {
+        text customer_id PK
+        date week_start PK
+        numeric data_gb "data consumed, separate from purchases"
     }
     BUNDLES {
         text id PK
@@ -169,7 +175,7 @@ The first-round diagram ([`diagrams/erd.png`](diagrams/erd.png), superseded) map
 | v1 entity | v2 table(s) |
 |---|---|
 | CUSTOMER | `customers` |
-| BUNDLE_ACTIVITY | `bundle_activations` (one row per purchase) + `bundles` (catalog, USD/LRD) |
+| BUNDLE_ACTIVITY | `bundle_activations` (one row per purchase) + `bundles` (catalog, USD/LRD) + `customer_weekly_usage` (data consumed per week) |
 | ENGAGEMENT_SIGNAL | `cases.contributions` (the visible parts of the priority score) + `customer_metrics` |
 | BEHAVIORAL_ASSESSMENT | `cases` (one detection episode, with priority and queue status) |
 | FEEDBACK_REQUEST | `feedback_requests` (handed off to an existing Orange channel) |
