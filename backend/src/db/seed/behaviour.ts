@@ -149,5 +149,57 @@ export function buildBehaviour(data: PilotDataset): BehaviourRows {
     });
   }
 
+  addEvidenceScenarios(rows);
   return rows;
+}
+
+/**
+ * Evidence scenarios for Understand (F4). Deterministic (no PRNG calls) and parity-safe:
+ * failed attempts are not purchases, and a regional incident is not customer data, so
+ * activation counts, days inactive and priorities stay identical to the prototype.
+ */
+export const EVIDENCE_SCENARIOS = {
+  /** Repeated failed purchase attempts → activation_difficulty. */
+  failedAttempts: {
+    customerId: 'LR-14806',
+    bundleId: 'daily_600mb_usd',
+    daysBeforeRun: [10, 8, 6, 4],
+  },
+  /** Regional outage overlapping the current window → network_quality. */
+  incident: { region: 'Ganta', reportedDaysBeforeRun: 12, resolvedDaysBeforeRun: 9 },
+} as const;
+
+function addEvidenceScenarios(rows: BehaviourRows): void {
+  const { failedAttempts, incident } = EVIDENCE_SCENARIOS;
+  const bundle = BUNDLES.find((b) => b.id === failedAttempts.bundleId);
+  const behaviour = rows.byCustomer.get(failedAttempts.customerId);
+  if (!bundle || !behaviour) throw new Error('Evidence scenario references unknown seed data');
+
+  for (const days of failedAttempts.daysBeforeRun) {
+    const activatedAt = new Date(RUN_DATE - days * DAY_MS + 2 * 3_600_000);
+    rows.activations.push({
+      customerId: failedAttempts.customerId,
+      bundleId: bundle.id,
+      dataMb: bundle.dataMb,
+      pricePaid: bundle.price,
+      currency: bundle.currency,
+      activationChannel: 'ussd',
+      status: 'failed',
+      activatedAt,
+    });
+    behaviour.events.push({
+      activatedAt,
+      status: 'failed',
+      pricePaid: bundle.price,
+      currency: bundle.currency,
+    });
+  }
+
+  rows.networkFaults.push({
+    customerId: null,
+    region: incident.region,
+    source: 'network_monitoring',
+    reportedAt: new Date(RUN_DATE - incident.reportedDaysBeforeRun * DAY_MS),
+    resolvedAt: new Date(RUN_DATE - incident.resolvedDaysBeforeRun * DAY_MS),
+  });
 }
