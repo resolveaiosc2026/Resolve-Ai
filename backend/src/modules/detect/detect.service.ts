@@ -33,7 +33,7 @@ const pct = (part: number, total: number) => (total ? Math.round((part / total) 
 
 /* ------------------------------- Assembly ------------------------------- */
 
-export type AssembledCase = { row: QueueRow; metrics: CaseMetrics };
+export type AssembledCase = { row: QueueRow; metrics: CaseMetrics; runId: string };
 
 /** Builds QueueRows for case rows with a fixed number of batched queries (no N+1). */
 export async function assembleCases(ex: Executor, rows: CaseRow[]): Promise<AssembledCase[]> {
@@ -75,6 +75,7 @@ export async function assembleCases(ex: Executor, rows: CaseRow[]): Promise<Asse
     const reasonId = latestReason.get(kase.id);
     return {
       metrics: m,
+      runId: kase.runId,
       row: {
         caseId: kase.id,
         customer: toCustomerView(customer, kase, m),
