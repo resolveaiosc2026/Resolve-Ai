@@ -36,6 +36,38 @@ export const CLASSIFICATION = {
   reviewThreshold: 0.6,
 } as const;
 
+/**
+ * Understand: behavioural evidence rules (current 30-day window). A reason is "known"
+ * from evidence alone when its strength reaches CLASSIFICATION.recommendationGate.
+ */
+export const EVIDENCE = {
+  modelVersion: 'rules:evidence-v1',
+  activation: {
+    strong: { minFailed: 3, minFailedRate: 0.3, strength: 0.85 },
+    medium: { minFailed: 2, strength: 0.6 },
+  },
+  network: {
+    /** Regional incident overlapping the window AND at least one own fault report. */
+    incidentAndReport: 0.85,
+    /** Regional incident only, or at least `manyReports` own fault reports. */
+    incidentOrReports: 0.65,
+    manyReports: 2,
+    singleReport: 0.4,
+  },
+  affordability: {
+    /** Average price per bundle (USD-equivalent) fell to this share of baseline or less. */
+    tradeDownRatio: 0.7,
+    /** Never strong: affordability needs the customer's own words. */
+    strength: 0.55,
+  },
+} as const;
+
+/** Channel suggested for a feedback request (Orange owns the channel; Resolve AI only suggests). */
+export const SUGGESTED_CHANNEL = {
+  highTouch: 'voice_call',
+  default: 'sms',
+} as const;
+
 export const CURRENCY = {
   /** Fixed MVP assumption for USD-equivalent analytics (not a live rate). */
   lrdPerUsd: 190,
