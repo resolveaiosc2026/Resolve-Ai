@@ -9,6 +9,7 @@ import { detectCustomer, detectionWindows } from '../../modules/detect/detection
 import { loadDetectionSignals } from '../../modules/detect/detect.repository.js';
 import { executeDetection, type RunSummary } from '../../modules/detect/detect.service.js';
 import { summarizeUsage } from '../../modules/detect/scoring.js';
+import { applyEvidence, getReasons } from '../../modules/understand/understand.service.js';
 import { closeDatabase, db } from '../client.js';
 import {
   campaignHistory,
@@ -281,6 +282,67 @@ async function main(): Promise<void> {
     rerun?.before.map((r) => r.score),
   );
   check('re-run rolled back (no run left behind)', await db.$count(detectionRuns), runsBefore);
+
+  // 12. F4: evidence assessment ("Reason known?").
+  const strongestOf = (v: Awaited<ReturnType<typeof getReasons>>) => v.assessment.signals[0];
+  const activation = await getReasons('LR-14806');
+  check(
+    'LR-14806 evidence → activation_difficulty ≥ 0.80, use_evidence',
+    [
+      strongestOf(activation)?.reasonId,
+      (strongestOf(activation)?.strength ?? 0) >= 0.8,
+      activation.assessment.nextStep,
+    ],
+    ['activation_difficulty', true, 'use_evidence'],
+  );
+  const network = await getReasons('LR-00714');
+  check(
+    'LR-00714 evidence → network_quality ≥ 0.80, use_evidence',
+    [
+      strongestOf(network)?.reasonId,
+      (strongestOf(network)?.strength ?? 0) >= 0.8,
+      network.assessment.nextStep,
+    ],
+    ['network_quality', true, 'use_evidence'],
+  );
+  const heroView = await getReasons(HERO);
+  check(
+    `${HERO} view → classified affordability with reply`,
+    [
+      heroView.status,
+      heroView.primary?.id,
+      heroView.assessment.nextStep,
+      heroView.feedback?.verbatim,
+    ],
+    ['classified', 'affordability', 'classified', 'Money hard this month. Buy small weekly.'],
+  );
+
+  // 13. F4: accepting evidence (rolled back) stores the reason and moves the case to ready.
+  const classificationsBefore = await db.$count(reasonClassifications);
+  let accepted: { status?: string; source?: string } = {};
+  try {
+    await db.transaction(async (tx) => {
+      await applyEvidence(tx, 'LR-14806', 'db-verify');
+      const [kase] = await tx.select().from(cases).where(eq(cases.customerId, 'LR-14806'));
+      const [cls] = await tx
+        .select()
+        .from(reasonClassifications)
+        .where(eq(reasonClassifications.caseId, kase?.id ?? ''));
+      accepted = { status: kase?.queueStatus, source: cls?.source };
+      tx.rollback();
+    });
+  } catch (err) {
+    if (!(err instanceof TransactionRollbackError)) throw err;
+  }
+  check('accept evidence → case ready, source evidence', accepted, {
+    status: 'ready',
+    source: 'evidence',
+  });
+  check(
+    'accept evidence rolled back',
+    await db.$count(reasonClassifications),
+    classificationsBefore,
+  );
 }
 
 main()
