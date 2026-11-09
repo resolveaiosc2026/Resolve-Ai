@@ -17,15 +17,7 @@ export function toChannel(label: string): Channel {
   return channel;
 }
 
-/** What each action is meant to achieve (shown with a recommendation). */
-export const ACTION_OBJECTIVES: Record<string, string> = {
-  daily_mini_600: 'Keep the customer buying at a price they can afford now',
-  monthly_mini_2g: 'Move the customer back to a larger bundle within the pilot price cap',
-  care_bridge: 'Get the network fault fixed so the customer can use data again',
-  ussd_guide: 'Remove the activation barrier so the customer can buy their usual bundle',
-  competitor_match: 'Keep the customer from moving their data spend to another network',
-  reduced_need_checkin: 'Confirm the drop is a real change in need and avoid an unnecessary offer',
-};
+export { ACTION_OBJECTIVES } from '../../config/rules.js';
 
 /** Synthetic bundle catalog: each size sold in USD and LRD (LRD at the configured rate). */
 const BUNDLE_SIZES = [
@@ -64,7 +56,8 @@ export type CatalogRows = {
 export function buildCatalog(data: PilotDataset): CatalogRows {
   return {
     reasons: data.reasons.map((r, i) => ({ id: r.id, label: r.label, icon: r.icon, sortOrder: i })),
-    actions: data.actions.map((a) => ({
+    actions: data.actions.map((a, i) => ({
+      sortOrder: i,
       id: a.id,
       name: a.name,
       shortName: a.short_name,

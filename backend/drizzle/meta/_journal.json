@@ -15,6 +15,13 @@
       "when": 1794095789565,
       "tag": "0001_weekly_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794248792456,
+      "tag": "0002_loop_columns",
+      "breakpoints": true
     }
   ]
 }

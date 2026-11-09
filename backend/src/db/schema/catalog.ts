@@ -49,6 +49,8 @@ export const actions = pgTable('actions', {
     .$type<EligibilityRule[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
+  /** Library order (the next-best-action engine breaks ties in this order). */
+  sortOrder: integer().notNull().default(0),
 });
 
 /** Which reasons an action is built for. */

@@ -78,6 +78,10 @@ export const interventions = pgTable(
     deliveredAt: timestamptz(),
     clickRecorded: boolean().notNull().default(false),
     note: text(),
+    /** Send window chosen by the analyst (e.g. "Today 16:00–18:00"). */
+    deliveryWindow: text(),
+    /** Demo only: the simulation generated post-intervention activity up to this time. */
+    simulatedThrough: timestamptz(),
     createdAt: timestamptz().notNull().defaultNow(),
   },
   (t) => [index('interventions_case_idx').on(t.caseId)],
