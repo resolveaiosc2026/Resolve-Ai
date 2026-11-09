@@ -127,6 +127,7 @@ erDiagram
     }
     ACTIONS {
         text id PK "daily_mini_600"
+        int sort_order
         numeric price
         text channel
         jsonb eligibility_rules
@@ -156,6 +157,8 @@ erDiagram
         uuid recommendation_id FK
         text approved_by
         intervention_status status
+        text delivery_window
+        timestamptz simulated_through "demo only"
     }
     OUTCOMES {
         uuid id PK

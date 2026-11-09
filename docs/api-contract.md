@@ -537,3 +537,285 @@ The feedback queue: requests handed off to Orange channels, sorted by case prior
 Cases that should get a feedback request: prioritized (high/medium band), open, no reason, no open or answered request, and no strong evidence. Each item has `caseId`, `customerId`, `segment`, `region`, `valueTier`, `priority`, `queueStatus`, `suggestedChannel` (`voice_call` for high band or high value tier, otherwise `sms`), `channelLabel`, `trigger` (`no_evidence` | `low_confidence`) and `signals`.
 
 On the seeded data this list is **empty** (every pilot case already has a request); it fills when detection opens new cases. Resolve AI only suggests; the hand-off to an Orange channel is F5.
+
+---
+
+## Understand: channels and AI
+
+Resolve AI **hands off** feedback requests to Orange's existing channels and **ingests** the replies those channels return; it never contacts customers itself. Replies are normalized into the fixed taxonomy by an LLM (OpenRouter, behind an `LlmProvider` interface) with a deterministic **keyword fallback**: the API works fully without an API key.
+
+AI boundary:
+
+- Only the reply text and the taxonomy are sent; no customer id, MSISDN or region.
+- The output is Zod-validated: `{ reasonId ∈ taxonomy, confidence 0–1, sentiment, summary }`.
+- Timeout 8 s, then 1 retry, then the fallback.
+- `classifiedBy` is `llm:<model>` or `keyword_fallback`.
+- The LLM never decides recommendations or outcomes.
+
+### `POST /customers/:customerId/feedback-requests`
+
+Hands an ask to an Orange outbound channel. Body: `{ "channel": "sms" | "voice_call" | "ussd" | "field_agent_interview", "reviewerName": "analyst.hui", "question"?: string }` (a default question exists per channel).
+
+An unanswered ask older than **7 days** is marked `no_response`, and a follow-up on another channel is allowed. The case moves to `awaiting_reply`.
+
+**201**:
+
+```json
+{
+  "data": {
+    "id": "715f8e54-…",
+    "caseId": "398b2ea9-…",
+    "customerId": "LR-08222",
+    "channel": "Orange voice call",
+    "channelId": "voice_call",
+    "question": "Call script: We noticed you are buying fewer data bundles. …",
+    "status": "handed_off",
+    "triggerReason": "no_evidence",
+    "handedOffAt": "2026-11-09T18:29:16.586Z",
+    "handedOffBy": "analyst.hui",
+    "previousRequestsMarkedNoResponse": 1,
+    "note": "Handed off to the Orange channel. Resolve AI does not contact the customer."
+  }
+}
+```
+
+Errors: `409` (the case already has a reason, or an ask is still inside the 7-day reply window), `400`, `404`.
+
+### `POST /feedback-requests/:id/responses`
+
+How a real Orange channel returns a reply. Body: `{ "text": "…" (≤ 1000), "receivedAt"?: ISO }`.
+
+It stores the reply, marks the request `responded`, classifies the text and stores the reason (`source: "feedback"`). The case then becomes:
+
+- `ready` when confidence ≥ 0.80
+- otherwise `unclassified` (needs a human read; `needsReview` when < 0.60)
+
+A reason set meanwhile by evidence or a human is never overwritten; the reply is stored for the record (`stored: "reply_only"`).
+
+**201**: `{ "stored": "reply_and_reason", "classifiedBy": "llm:openai/gpt-4o-mini", "reasons": <reason view> }`
+
+Errors: `404`, `409` (the request already has a reply), `400`.
+
+### `POST /simulation/feedback-requests/:id/reply` (demo only)
+
+Plays Orange's channel returning a reply. Body: `{ "text"?: string }`. Without `text`, a synthetic Liberian-English reply is chosen deterministically. The reply goes through the same ingestion as above and is flagged `simulated`. **Not mounted when `NODE_ENV=production`.**
+
+### `POST /feedback`
+
+Inbound feedback that arrives without an ask. Body: `{ "channel": "customer_service" | "facebook_comment", "text", "customerId"?: "LR-12345", "region"?: string }`.
+
+It's stored as context (linked to the open case when `customerId` is given) and returns a classification **preview**. It never changes the case's reason.
+
+**201**: `{ "id", "channel", "channelId", "customerId", "caseId", "region", "preview": { "reasonId", "confidence", "sentiment", "summary", "classifiedBy" }, "note" }`
+
+### `PATCH /reasons/:classificationId`
+
+A human confirms or corrects a reason (`classificationId` is in the reason view). Body: `{ "reasonId", "reviewerName", "note"? }`.
+
+- **Confirming** marks the record as reviewed.
+- **Correcting** also adds a `source: "human"` reason (confidence 1). From then on, the queue label, the recommendation and the report use it, and the human/AI agreement metric counts the disagreement.
+
+The case moves to `ready`.
+
+**200**: the updated reason view. Errors: `404` (unknown classification or reason), `400`.
+
+---
+
+## Recommend
+
+### `GET /customers/:customerId/recommendation`
+
+The live next-best-action, shaped like the frontend `RecommendationView` (`recommendAction()`).
+
+Predicted recovery comes from campaign history (reason × action; 0.20 when there's no row). The eligibility rules match the prototype:
+
+| Code                | Rule                                          |
+| ------------------- | --------------------------------------------- |
+| `plan_active`       | Active within 90 days                         |
+| `no_discount_30d`   | No offer within 30 days of the run date       |
+| `regional_stock`    | Monrovia, Sinkor or Paynesville               |
+| `confidence_gate`   | Reason confidence ≥ 80%                       |
+| `affordability_cap` | Price ≤ $2.00                                 |
+| `fault_reported`    | A network fault was reported                  |
+| `prior_activation`  | The customer has activated this bundle before |
+| `pricing_approval`  | Always fails (outside the pilot)              |
+| `consent_call`      | ≥ 2 care contacts                             |
+
+```json
+{
+  "data": {
+    "caseId": "…",
+    "customerId": "LR-20417",
+    "reason": {
+      "id": "affordability",
+      "label": "Affordability",
+      "icon": "wallet",
+      "confidence": 0.862
+    },
+    "recommended": {
+      "action": {
+        "id": "daily_mini_600",
+        "name": "Daily Mini 600 MB for $0.60",
+        "shortName": "Daily Mini 600 MB",
+        "price": 0.6,
+        "currency": "USD",
+        "sizeMb": 600,
+        "validityHours": 24,
+        "reasons": ["affordability"],
+        "mismatchNote": "",
+        "channel": "Orange SMS",
+        "channelId": "sms",
+        "window": "Today 16:00–18:00",
+        "body": "Orange: Daily Mini 600 MB for $0.60, …",
+        "eligibility": [{ "code": "plan_active", "label": "Plan is active" }]
+      },
+      "predictedRecovery": 0.62,
+      "eligible": true,
+      "checks": [
+        {
+          "code": "plan_active",
+          "label": "Plan is active",
+          "passed": true,
+          "detail": "Line active, last seen 22 days ago."
+        }
+      ],
+      "why": "Matches a affordability reply: daily mini 600 mb keeps the spend the customer is already making.",
+      "rejectedReason": null
+    },
+    "candidates": [],
+    "notRecommended": [],
+    "history": [
+      {
+        "reason": "Affordability",
+        "action": "Daily Mini 600 MB for $0.60",
+        "outcome": "62% recovered (n=214, synthetic)"
+      }
+    ],
+    "current": null
+  }
+}
+```
+
+`candidates` are the eligible actions ranked by predicted recovery. `notRecommended` lists the rest, each with its `rejectedReason`. `current` is the case's latest persisted recommendation, if any.
+
+### `POST /customers/:customerId/recommendations`
+
+Persists the current best action as a **pending** recommendation. The snapshot includes the action, predicted recovery, checks, alternatives (with eligibility and rejection reasons), the rationale (`why`) and the objective. Body: `{}`.
+
+**201**: the recommendation (see `GET /recommendations/:id`). Errors: `409` (no reason yet, no eligible action, or a pending recommendation already exists).
+
+### `GET /recommendations` and `GET /recommendations/:id`
+
+List (filter `status`: `pending` | `approved` | `rejected` | `superseded`, paging) and detail. Each item:
+
+`{ id, caseId, customerId, action: { id, name, shortName }, predictedRecovery, rationale, objective, eligibilityChecks, alternatives, status, decidedBy, decidedAt, decisionNote, createdAt, intervention: { id, reference } | null }`
+
+---
+
+## Act
+
+`:recommendationId` is the **recommendation id**.
+
+### `POST /actions/:recommendationId/approve`
+
+Body: `{ "reviewerName", "actionId"?, "channel"?, "window"?, "note"? }`.
+
+- Same action → decision `approved`.
+- A different **eligible** alternative → decision `changed`.
+
+It creates the intervention `INT-<next>`, status `handed_off` (handed to Orange's workflow; Resolve AI sends nothing). The recommendation becomes `approved` and the case `action_done`.
+
+**201**: `{ "decision": "approved" | "changed", "intervention": <intervention> }`. Errors: `409` (not pending, or the action isn't an eligible alternative), `404`, `400`.
+
+### `POST /actions/:recommendationId/reject`
+
+The Act screen's **"send to human review"**. Body: `{ "reviewerName", "note" }` (note required). The recommendation becomes `rejected` and the case `unclassified`.
+
+**200**: `{ "recommendationId", "status": "rejected", "caseStatus": "unclassified" }`. Errors: `409`, `404`, `400`.
+
+### `GET /interventions` and `GET /interventions/:id`
+
+`:id` accepts the uuid or the reference (`INT-4106`). Filter `status`: `approved` | `handed_off` | `delivered` | `failed` | `cancelled`. Each item:
+
+`{ id, reference, recommendationId, caseId, customerId, action, recommendedActionId, decision, channel, channelId, deliveryWindow, approvedBy, approvedAt, status, handedOffAt, deliveredAt, clickRecorded, note, simulatedThrough, hasOutcome }`
+
+---
+
+## Measure
+
+### `POST /simulation/interventions/:id/advance` (demo only)
+
+Simulates Orange delivering the intervention and the customer's next **30 days**: synthetic purchases are generated, the intervention becomes `delivered`, and `simulatedThrough` is set. Body: `{ "scenario"?: "recover" | "partial" | "no_change" | "decline" }`.
+
+The default scenario is deterministic (a stable hash of the reference against the predicted recovery), so recoveries happen about as often as campaign history predicts. The window may extend past today. **Not mounted in production.**
+
+**200**: `{ "reference", "scenario", "simulatedPurchases", "windowEnd", "simulated": true }`. Errors: `409` (already simulated, failed/cancelled, or already measured).
+
+### `POST /interventions/:id/outcome`
+
+Measures the outcome from recorded purchases in (hand-off, hand-off + 30 days], against the case's baseline and the level at which it was flagged. The rule is the share of the drop recovered:
+
+| Share recovered | Outcome                  |
+| --------------- | ------------------------ |
+| ≥ 50%           | `re_engaged` (recovered) |
+| 15–50%          | `partially_engaged`      |
+| −10% to 15%     | `no_change`              |
+| worse           | `declined_further`       |
+
+It writes the outcome (`cohort: "treated"`) and a `post_intervention` metrics row. Body: `{ "reviewerName"?, "notes"? }`.
+
+**201**:
+
+```json
+{
+  "data": {
+    "id": "…",
+    "interventionId": "INT-4106",
+    "customerId": "LR-08222",
+    "windowDays": 30,
+    "baselineActivations": 11,
+    "activationsAfter": 8,
+    "changePct": -27,
+    "shareOfDropRecovered": 0,
+    "outcomeType": "no_change",
+    "recovered": false,
+    "simulated": true,
+    "note": "…",
+    "measuredAt": "2026-12-09T18:29:42.634Z"
+  }
+}
+```
+
+Errors: `409` (the window hasn't closed and hasn't been simulated, or an outcome already exists), `404`.
+
+### `GET /customers/:customerId/measure`
+
+The frontend `MeasureView` (`measureView()`):
+
+- `events[]`: `{ label, detail, at, system }`, with the same wording and order as the prototype. Automated classifications say "classified automatically (…)" rather than "confirmed by a human".
+- `outcome`, `intervention`, `action`
+- `verdict`: `recovered` | `not_recovered` | `awaiting_window`
+- `activationsAfter`, `vsBaselinePct`
+- `controlSummary`: `{ recovered, total, rate }`
+
+---
+
+## Report
+
+### `GET /reports/summary`
+
+The frontend `reportView()`: `flagged`, `windowDays`, `churned`, `churnPct`, `approvalsThisWeek`, `approvalsTotal`, `marginImpactPct`, `awaitingReply`, `classified`, `reasons[] { label, count, pct }` (ties ordered by label), `treated` and `control` `{ recovered, n, rate, ci: { low, high } }`, `differencePoints`, `intervalsOverlap`, `agreement { agreed, reviewed, pct, rows[] }`, `history[]`, `simulated: true`.
+
+`ci` is the **Wilson 95% interval, using the standard formula**. The prototype's `wilson()` divides by `n` instead of `√n` and produces intervals that are too narrow (treated 2/6: [0.275, 0.522] there, versus [0.097, 0.700] here).
+
+### `GET /reports/drivers`
+
+Reasons for open cases with `count`, `pct` and `bySource { feedback, evidence, human }`, plus `coverage { openCases, classified, unknown, needsReview, asked, answered, unanswered, noReasonYet }`.
+
+### `GET /reports/actions`
+
+The funnel per action: `recommended`, `approved`, `changedTo`, `rejected`, `delivered`, `measured`, `recovered`; plus `campaignHistory[]` (synthetic).
+
+### `GET /dashboard/trends`
+
+Average weekly GB across open cases for the 12 detection weeks: `weeks[] { weekStart, period: "baseline" | "current", customers, avgGb }`.

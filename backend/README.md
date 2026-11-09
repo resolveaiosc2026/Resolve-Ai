@@ -67,13 +67,16 @@ The dataset is a faithful port of the frontend generator (`frontend/scripts/gene
 
 ## Environment
 
-| Variable       | Default                 | Purpose                                                                                         |
-| -------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
-| `NODE_ENV`     | `development`           | `development` or `production` (hides internal error messages)                                   |
-| `PORT`         | `4000`                  | HTTP port                                                                                       |
-| `CORS_ORIGIN`  | `http://localhost:3000` | Comma-separated browser origins allowed to call the API                                         |
-| `LOG_LEVEL`    | `info`                  | `debug`, `info`, `warn` or `error`                                                              |
-| `DATABASE_URL` | _(required)_            | Neon pooled Postgres connection string (`postgresql://…?sslmode=require`). Secret: never commit |
+| Variable                | Default                 | Purpose                                                                                                        |
+| ----------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`              | `development`           | `development` or `production` (hides internal error messages)                                                  |
+| `PORT`                  | `4000`                  | HTTP port                                                                                                      |
+| `CORS_ORIGIN`           | `http://localhost:3000` | Comma-separated browser origins allowed to call the API                                                        |
+| `LOG_LEVEL`             | `info`                  | `debug`, `info`, `warn` or `error`                                                                             |
+| `DATABASE_URL`          | _(required)_            | Neon pooled Postgres connection string (`postgresql://…?sslmode=require`). Secret: never commit                |
+| `OPENROUTER_API_KEY`    | _(empty)_               | Optional. AI reply classification via OpenRouter; empty = deterministic keyword fallback. Secret: never commit |
+| `OPENROUTER_MODEL`      | `openai/gpt-4o-mini`    | OpenRouter model id                                                                                            |
+| `OPENROUTER_TIMEOUT_MS` | `8000`                  | Per-call timeout (one retry, then fallback)                                                                    |
 
 The environment is validated at startup; the server refuses to start with a clear message if a value is invalid.
 
@@ -100,22 +103,37 @@ Routes stay thin (HTTP only), services hold business logic, repositories hold da
 
 Full contract with examples: [`docs/api-contract.md`](../docs/api-contract.md).
 
-| Method | Path                                     | Purpose                                             |
-| ------ | ---------------------------------------- | --------------------------------------------------- |
-| GET    | `/api/v1/health`                         | Liveness + database status                          |
-| GET    | `/api/v1/risk`                           | Priority queue (filters, paging)                    |
-| GET    | `/api/v1/risk/summary`                   | Detect KPIs and risk distribution                   |
-| GET    | `/api/v1/risk/:customerId`               | One queue row                                       |
-| GET    | `/api/v1/customers`                      | Customer list                                       |
-| GET    | `/api/v1/customers/:id`                  | Customer 360 (usage, priority, monthly metrics)     |
-| GET    | `/api/v1/segments`                       | Priority bands + breakdown by customer segment      |
-| GET    | `/api/v1/segments/:band`                 | Queue rows for one band                             |
-| GET    | `/api/v1/detection-runs/latest`          | Latest detection run                                |
-| POST   | `/api/v1/detection-runs`                 | Re-run detection from stored behaviour              |
-| GET    | `/api/v1/customers/:id/reasons`          | Reason view + evidence assessment (next step)       |
-| POST   | `/api/v1/customers/:id/reasons/evidence` | Accept strong evidence as the reason                |
-| GET    | `/api/v1/feedback-requests`              | Feedback queue (requests handed to Orange channels) |
-| GET    | `/api/v1/feedback-requests/suggestions`  | Cases that should get a feedback request            |
+| Method | Path                                                | Purpose                                                                |
+| ------ | --------------------------------------------------- | ---------------------------------------------------------------------- |
+| GET    | `/api/v1/health`                                    | Liveness + database status                                             |
+| GET    | `/api/v1/risk`                                      | Priority queue (filters, paging)                                       |
+| GET    | `/api/v1/risk/summary`                              | Detect KPIs and risk distribution                                      |
+| GET    | `/api/v1/risk/:customerId`                          | One queue row                                                          |
+| GET    | `/api/v1/customers`                                 | Customer list                                                          |
+| GET    | `/api/v1/customers/:id`                             | Customer 360 (usage, priority, monthly metrics)                        |
+| GET    | `/api/v1/segments`                                  | Priority bands + breakdown by customer segment                         |
+| GET    | `/api/v1/segments/:band`                            | Queue rows for one band                                                |
+| GET    | `/api/v1/detection-runs/latest`                     | Latest detection run                                                   |
+| POST   | `/api/v1/detection-runs`                            | Re-run detection from stored behaviour                                 |
+| GET    | `/api/v1/customers/:id/reasons`                     | Reason view + evidence assessment (next step)                          |
+| POST   | `/api/v1/customers/:id/reasons/evidence`            | Accept strong evidence as the reason                                   |
+| GET    | `/api/v1/feedback-requests`                         | Feedback queue (requests handed to Orange channels)                    |
+| GET    | `/api/v1/feedback-requests/suggestions`             | Cases that should get a feedback request                               |
+| POST   | `/api/v1/customers/:id/feedback-requests`           | Hand an ask to an Orange channel                                       |
+| POST   | `/api/v1/feedback-requests/:id/responses`           | Ingest a reply returned by the channel                                 |
+| POST   | `/api/v1/feedback`                                  | Inbound feedback (classification preview)                              |
+| PATCH  | `/api/v1/reasons/:classificationId`                 | Human confirms or corrects a reason                                    |
+| GET    | `/api/v1/customers/:id/recommendation`              | Live next-best action                                                  |
+| POST   | `/api/v1/customers/:id/recommendations`             | Persist a pending recommendation                                       |
+| GET    | `/api/v1/recommendations`, `/:id`                   | Recommendations                                                        |
+| POST   | `/api/v1/actions/:recommendationId/approve`         | Approve or change → intervention handed off                            |
+| POST   | `/api/v1/actions/:recommendationId/reject`          | Send to human review                                                   |
+| GET    | `/api/v1/interventions`, `/:id`                     | Interventions (uuid or INT-1234)                                       |
+| POST   | `/api/v1/interventions/:id/outcome`                 | Measure the outcome                                                    |
+| GET    | `/api/v1/customers/:id/measure`                     | Timeline, verdict, control summary                                     |
+| GET    | `/api/v1/reports/summary` · `/drivers` · `/actions` | Reports                                                                |
+| GET    | `/api/v1/dashboard/trends`                          | Weekly usage trend                                                     |
+| POST   | `/api/v1/simulation/...`                            | **Demo only** (not mounted in production): Orange reply, 30-day window |
 
 ## Conventions
 
