@@ -100,18 +100,22 @@ Routes stay thin (HTTP only), services hold business logic, repositories hold da
 
 Full contract with examples: [`docs/api-contract.md`](../docs/api-contract.md).
 
-| Method | Path                            | Purpose                                         |
-| ------ | ------------------------------- | ----------------------------------------------- |
-| GET    | `/api/v1/health`                | Liveness + database status                      |
-| GET    | `/api/v1/risk`                  | Priority queue (filters, paging)                |
-| GET    | `/api/v1/risk/summary`          | Detect KPIs and risk distribution               |
-| GET    | `/api/v1/risk/:customerId`      | One queue row                                   |
-| GET    | `/api/v1/customers`             | Customer list                                   |
-| GET    | `/api/v1/customers/:id`         | Customer 360 (usage, priority, monthly metrics) |
-| GET    | `/api/v1/segments`              | Priority bands + breakdown by customer segment  |
-| GET    | `/api/v1/segments/:band`        | Queue rows for one band                         |
-| GET    | `/api/v1/detection-runs/latest` | Latest detection run                            |
-| POST   | `/api/v1/detection-runs`        | Re-run detection from stored behaviour          |
+| Method | Path                                     | Purpose                                             |
+| ------ | ---------------------------------------- | --------------------------------------------------- |
+| GET    | `/api/v1/health`                         | Liveness + database status                          |
+| GET    | `/api/v1/risk`                           | Priority queue (filters, paging)                    |
+| GET    | `/api/v1/risk/summary`                   | Detect KPIs and risk distribution                   |
+| GET    | `/api/v1/risk/:customerId`               | One queue row                                       |
+| GET    | `/api/v1/customers`                      | Customer list                                       |
+| GET    | `/api/v1/customers/:id`                  | Customer 360 (usage, priority, monthly metrics)     |
+| GET    | `/api/v1/segments`                       | Priority bands + breakdown by customer segment      |
+| GET    | `/api/v1/segments/:band`                 | Queue rows for one band                             |
+| GET    | `/api/v1/detection-runs/latest`          | Latest detection run                                |
+| POST   | `/api/v1/detection-runs`                 | Re-run detection from stored behaviour              |
+| GET    | `/api/v1/customers/:id/reasons`          | Reason view + evidence assessment (next step)       |
+| POST   | `/api/v1/customers/:id/reasons/evidence` | Accept strong evidence as the reason                |
+| GET    | `/api/v1/feedback-requests`              | Feedback queue (requests handed to Orange channels) |
+| GET    | `/api/v1/feedback-requests/suggestions`  | Cases that should get a feedback request            |
 
 ## Conventions
 

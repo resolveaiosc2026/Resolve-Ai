@@ -371,3 +371,169 @@ Re-runs detection from the stored behaviour. Body (optional): `{ "asOf": "2026-1
 ```
 
 Errors: `400 VALIDATION_ERROR` (bad/future `asOf`, unknown field), `409 CONFLICT` (two runs started at once).
+
+---
+
+## Understand (evidence)
+
+Implements the decision point **"Reason known?"**. Resolve AI first checks behavioural **evidence**. If evidence doesn't explain the change, the case needs customer feedback through an **existing Orange channel**; Resolve AI never contacts customers itself (hand-off and AI normalization arrive in F5).
+
+### Evidence rules (current 30-day window)
+
+| Reason                  | Signal                                                                                     | Strength                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| `activation_difficulty` | ≥ 3 failed purchase attempts and failed rate ≥ 30%                                         | 0.85                                                |
+|                         | ≥ 2 failed attempts                                                                        | 0.60                                                |
+| `network_quality`       | Regional incident in the customer's region overlapping the window and ≥ 1 own fault report | 0.85                                                |
+|                         | Regional incident only, or ≥ 2 own fault reports                                           | 0.65                                                |
+|                         | 1 own fault report                                                                         | 0.40                                                |
+| `affordability`         | Average price per bundle (USD-equivalent) fell ≥ 30% vs baseline (trading down)            | 0.55 (never strong: needs the customer's own words) |
+
+A reason is **known from evidence** when the strongest signal is ≥ 0.80 (the same gate recommendations use).
+
+### Next step (`assessment.nextStep`)
+
+| Value              | Meaning                                                                  |
+| ------------------ | ------------------------------------------------------------------------ |
+| `classified`       | The case already has a reason (from feedback, evidence or a human)       |
+| `use_evidence`     | Evidence is strong enough: an analyst can accept it as the reason        |
+| `awaiting_reply`   | A feedback request was handed off to an Orange channel and is unanswered |
+| `request_feedback` | Prioritized (high/medium band), no strong evidence, no request yet       |
+| `monitor`          | Low priority, no strong evidence                                         |
+
+### `GET /customers/:customerId/reasons`
+
+The case's reason, shaped like the frontend `ClassificationView` (`classifyReason()`), plus `caseId`, `source`, `review` and `assessment`.
+
+```json
+{
+  "data": {
+    "caseId": "4d1c…",
+    "status": "classified",
+    "primary": {
+      "id": "affordability",
+      "label": "Affordability",
+      "icon": "wallet",
+      "confidence": 0.862
+    },
+    "alternatives": [
+      {
+        "id": "reduced_need",
+        "label": "Reduced need",
+        "icon": "arrow-down",
+        "confidence": 0.041
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "behavioural",
+        "title": "Behavioural signal — the customer's own words",
+        "body": "\"Money hard this month. Buy small weekly.\" — …"
+      },
+      {
+        "kind": "usage",
+        "title": "Usage pattern",
+        "body": "6 bundle activations this month against their own baseline of 18 per month (-69%)."
+      },
+      {
+        "kind": "exclusion",
+        "title": "Network faults checked",
+        "body": "No fault reported from this customer in 22 days, …"
+      }
+    ],
+    "feedback": {
+      "requestId": "…",
+      "askedAt": "2026-10-12T08:00:00.000Z",
+      "channel": "Orange SMS",
+      "channelId": "sms",
+      "question": "Orange: We noticed your bundle use dropped. Reply with one number: …",
+      "replyReceived": true,
+      "repliedAt": "2026-10-12T15:00:00.000Z",
+      "classifiedBy": "analyst.hui",
+      "classifiedAt": "2026-10-14T16:00:00.000Z",
+      "verbatim": "Money hard this month. Buy small weekly."
+    },
+    "source": "feedback",
+    "review": {
+      "reasonId": "affordability",
+      "reviewedBy": "analyst.hui",
+      "reviewedAt": "2026-10-24T08:00:00.000Z"
+    },
+    "assessment": {
+      "nextStep": "classified",
+      "reasonKnown": true,
+      "signals": []
+    }
+  }
+}
+```
+
+- `status`: `classified`, `awaiting_reply`, or `unclassified` (as in the prototype).
+- `primary` is `null` and `alternatives` is empty until a reason exists.
+- `feedback` is `null` if no request was ever made.
+- `source`: `feedback` | `evidence` | `human` | `null`.
+
+Example for a case explained by evidence (`LR-00714`, Ganta outage):
+
+```json
+"assessment": {
+  "nextStep": "use_evidence",
+  "reasonKnown": true,
+  "signals": [
+    { "reasonId": "network_quality", "label": "Network quality", "strength": 0.85,
+      "detail": "Network incident in Ganta (reported 2026-10-16) overlaps the drop, and 2 network fault reports from this customer in the last 30 days." },
+    { "reasonId": "affordability", "label": "Affordability", "strength": 0.55,
+      "detail": "Average price per bundle fell from $2.27 to $1.47 (USD-equivalent): the customer is trading down to cheaper bundles." }
+  ]
+}
+```
+
+Errors: `400` (bad id), `404` (no open case).
+
+### `POST /customers/:customerId/reasons/evidence`
+
+A human accepts strong behavioural evidence as the case's reason. It stores a classification with `source: "evidence"` and `classifiedBy: "rules:evidence-v1"`, records the reviewer, and moves the case to `ready`.
+
+Body: `{ "reviewerName": "analyst.hui" }` (1–60 chars).
+
+**201**: the updated `GET /customers/:customerId/reasons` view.
+
+Errors: `400` (missing/invalid `reviewerName`, unknown field), `404`, `409 CONFLICT` (the case already has a reason, or the evidence is below 80%; the message says to request feedback instead).
+
+### `GET /feedback-requests`
+
+The feedback queue: requests handed off to Orange channels, sorted by case priority. Filters: `status` (`pending`|`handed_off`|`responded`|`no_response`), `channel` (`voice_call`|`sms`|`ussd`|`field_agent_interview`|`customer_service`|`facebook_comment`), `page`, `pageSize`.
+
+```json
+{
+  "data": [
+    {
+      "id": "…",
+      "caseId": "…",
+      "customerId": "LR-26878",
+      "segment": "Home fix",
+      "region": "Sinkor",
+      "priority": { "total": 75, "band": "high" },
+      "queueStatus": "awaiting_reply",
+      "channel": "Orange SMS",
+      "channelId": "sms",
+      "question": "Orange: We noticed your bundle use dropped. …",
+      "status": "handed_off",
+      "triggerReason": "no_evidence",
+      "createdAt": "2026-10-13T08:00:00.000Z",
+      "handedOffAt": "2026-10-13T08:00:00.000Z",
+      "respondedAt": null,
+      "reply": null
+    }
+  ],
+  "meta": { "page": 1, "pageSize": 50, "total": 22 }
+}
+```
+
+`reply` is `{ "text", "receivedAt" }` once the channel returns an answer.
+
+### `GET /feedback-requests/suggestions`
+
+Cases that should get a feedback request: prioritized (high/medium band), open, no reason, no open or answered request, and no strong evidence. Each item has `caseId`, `customerId`, `segment`, `region`, `valueTier`, `priority`, `queueStatus`, `suggestedChannel` (`voice_call` for high band or high value tier, otherwise `sms`), `channelLabel`, `trigger` (`no_evidence` | `low_confidence`) and `signals`.
+
+On the seeded data this list is **empty** (every pilot case already has a request); it fills when detection opens new cases. Resolve AI only suggests; the hand-off to an Orange channel is F5.
