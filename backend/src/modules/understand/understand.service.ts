@@ -35,7 +35,7 @@ const avgPrice = (spend?: number, activations?: number) =>
   spend !== undefined && activations ? spend / activations : null;
 
 /** Evidence inputs for each assembled case (batched: one attempts query, one incidents query). */
-async function evidenceInputs(
+export async function evidenceInputs(
   ex: Executor,
   cases: AssembledCase[],
 ): Promise<Map<string, EvidenceInput>> {
@@ -136,6 +136,7 @@ async function buildViews(ex: Executor, cases: AssembledCase[]): Promise<Classif
     if (cls) {
       return {
         caseId: row.caseId,
+        classificationId: cls.id,
         status: 'classified' as const,
         primary: toCandidate(cls.reasonId, cls.confidence, reasons),
         alternatives: cls.alternatives.map((a) => toCandidate(a.reasonId, a.confidence, reasons)),
@@ -155,6 +156,7 @@ async function buildViews(ex: Executor, cases: AssembledCase[]): Promise<Classif
     }
     return {
       caseId: row.caseId,
+      classificationId: null,
       status:
         row.status === 'unclassified' ? ('unclassified' as const) : ('awaiting_reply' as const),
       primary: null,
@@ -174,7 +176,7 @@ async function buildViews(ex: Executor, cases: AssembledCase[]): Promise<Classif
   });
 }
 
-async function assembledCaseFor(ex: Executor, customerId: string): Promise<AssembledCase> {
+export async function assembledCaseFor(ex: Executor, customerId: string): Promise<AssembledCase> {
   const row = await detectRepo.findCaseRowByCustomer(ex, customerId);
   if (!row) throw notFound(`No open case for customer ${customerId}`);
   const [assembled] = await assembleCases(ex, [row]);
@@ -183,7 +185,15 @@ async function assembledCaseFor(ex: Executor, customerId: string): Promise<Assem
 }
 
 export async function getReasons(customerId: string): Promise<ClassificationView> {
-  const [view] = await buildViews(db, [await assembledCaseFor(db, customerId)]);
+  return getReasonsWith(db, customerId);
+}
+
+/** The reason view using any executor (lets transactional callers read their own writes). */
+export async function getReasonsWith(
+  ex: Executor,
+  customerId: string,
+): Promise<ClassificationView> {
+  const [view] = await buildViews(ex, [await assembledCaseFor(ex, customerId)]);
   if (!view) throw notFound(`No open case for customer ${customerId}`);
   return view;
 }

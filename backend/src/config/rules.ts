@@ -36,6 +36,60 @@ export const CLASSIFICATION = {
   reviewThreshold: 0.6,
 } as const;
 
+/** Understand: feedback hand-off to Orange channels. */
+export const FEEDBACK = {
+  /** An unanswered request older than this can be followed up on another channel (it becomes no_response). */
+  replyWindowDays: 7,
+  /** Orange channels Resolve AI can hand an ask to (inbound-only channels excluded). */
+  outboundChannels: ['sms', 'voice_call', 'ussd', 'field_agent_interview'] as const,
+  inboundChannels: ['customer_service', 'facebook_comment'] as const,
+  questions: {
+    sms: 'Orange: We noticed your bundle use dropped. Reply with one number: 1 Price 2 Network 3 Not using much 4 Using another line 5 Something else',
+    voice_call:
+      'Call script: We noticed you are buying fewer data bundles. Can you tell us in your own words what changed?',
+    ussd: 'Orange: Bundle use dropped? 1 Price 2 Network 3 Not using much 4 Other line 5 Other',
+    field_agent_interview:
+      'Agent guide: Ask the customer why they buy fewer bundles now. Write their answer in their own words.',
+  },
+  maxTextLength: 1000,
+} as const;
+
+/** Recommend: next-best-action engine (ported from the prototype's recommendAction/evaluateRule). */
+export const RECOMMEND = {
+  /** Predicted recovery when campaign history has no row for reason × action. */
+  fallbackRecovery: 0.2,
+  /** Offers sent within this many days (either side of the run date) block a new discount. */
+  priorOfferDays: 30,
+  /** Regions where the Daily Mini bundle is stocked (synthetic). */
+  stockedRegions: ['Monrovia', 'Sinkor', 'Paynesville'],
+  /** Pilot price cap for affordability offers (USD). */
+  priceCapUsd: 2,
+  /** A line with no activity for this long is not an active plan. */
+  inactivePlanDays: 90,
+  /** Care contacts needed to count as consent to a care call. */
+  consentCareContacts: 2,
+} as const;
+
+/** What each action is meant to achieve (stored with a recommendation). */
+export const ACTION_OBJECTIVES: Record<string, string> = {
+  daily_mini_600: 'Keep the customer buying at a price they can afford now',
+  monthly_mini_2g: 'Move the customer back to a larger bundle within the pilot price cap',
+  care_bridge: 'Get the network fault fixed so the customer can use data again',
+  ussd_guide: 'Remove the activation barrier so the customer can buy their usual bundle',
+  competitor_match: 'Keep the customer from moving their data spend to another network',
+  reduced_need_checkin: 'Confirm the drop is a real change in need and avoid an unnecessary offer',
+};
+
+/** Measure: outcome window and the share-of-drop-recovered rule. */
+export const MEASURE = {
+  windowDays: 30,
+  tolerancePct: 5,
+  /** Share of the original drop recovered → outcome type. */
+  reEngagedShare: 0.5,
+  partialShare: 0.15,
+  noChangeShare: -0.1,
+} as const;
+
 /**
  * Understand: behavioural evidence rules (current 30-day window). A reason is "known"
  * from evidence alone when its strength reaches CLASSIFICATION.recommendationGate.

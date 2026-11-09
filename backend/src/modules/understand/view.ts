@@ -40,6 +40,8 @@ export type AssessmentView = {
 
 export type ClassificationView = {
   caseId: string;
+  /** Id of the reason record (use with PATCH /reasons/:classificationId); null until a reason exists. */
+  classificationId: string | null;
   status: 'classified' | 'awaiting_reply' | 'unclassified';
   primary: ReasonCandidateView | null;
   alternatives: ReasonCandidateView[];
