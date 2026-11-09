@@ -9,7 +9,27 @@ import { detectCustomer, detectionWindows } from '../../modules/detect/detection
 import { loadDetectionSignals } from '../../modules/detect/detect.repository.js';
 import { executeDetection, type RunSummary } from '../../modules/detect/detect.service.js';
 import { summarizeUsage } from '../../modules/detect/scoring.js';
-import { applyEvidence, getReasons } from '../../modules/understand/understand.service.js';
+import { applyApprove } from '../../modules/act/act.service.js';
+import {
+  applyAdvance,
+  applyOutcome,
+  measureViewWith,
+} from '../../modules/measure/measure.service.js';
+import {
+  applyPersistRecommendation,
+  recommendationViewWith,
+} from '../../modules/recommend/recommend.service.js';
+import { summaryWith } from '../../modules/report/report.service.js';
+import {
+  applyHandOff,
+  applyReply,
+  prepareReply,
+} from '../../modules/understand/channels.service.js';
+import {
+  applyEvidence,
+  getReasons,
+  getReasonsWith,
+} from '../../modules/understand/understand.service.js';
 import { closeDatabase, db } from '../client.js';
 import {
   campaignHistory,
@@ -343,6 +363,99 @@ async function main(): Promise<void> {
     await db.$count(reasonClassifications),
     classificationsBefore,
   );
+
+  // 14. F6: recommendation for LR-20417 (same as the prototype's recommendAction).
+  const heroRec = await recommendationViewWith(db, HERO);
+  check(
+    `${HERO} recommended action, recovery, checks`,
+    [
+      heroRec.recommended?.action.id,
+      Math.round((heroRec.recommended?.predictedRecovery ?? 0) * 100),
+      heroRec.recommended?.checks.every((c) => c.passed),
+    ],
+    ['daily_mini_600', 62, true],
+  );
+  check(
+    `${HERO} runner-up and rejected bridge`,
+    [
+      heroRec.candidates[1]?.action.id,
+      heroRec.notRecommended.some((c) => c.action.id === 'care_bridge'),
+    ],
+    ['monthly_mini_2g', true],
+  );
+
+  // 15. F8: measure view for the documented negative pilot result.
+  const negView = await measureViewWith(db, NEGATIVE_CASE);
+  const times = negView.events.map((e) => e.at);
+  check(
+    `${NEGATIVE_CASE} measure view`,
+    [
+      negView.verdict,
+      negView.vsBaselinePct,
+      negView.events.length >= 8,
+      times.every((t, i) => i === 0 || t >= (times[i - 1] ?? '')),
+    ],
+    ['not_recovered', -67, true, true],
+  );
+
+  // 16. F9: report summary (same as the prototype's reportView; CI uses the correct Wilson formula).
+  const report = await summaryWith(db);
+  check(
+    'report treated / control / agreement / flagged',
+    [
+      `${report.treated.recovered}/${report.treated.n}`,
+      `${report.control.recovered}/${report.control.n}`,
+      `${report.agreement.agreed}/${report.agreement.reviewed}`,
+      report.flagged,
+    ],
+    ['2/6', '2/8', '3/3', 45],
+  );
+
+  // 17. Full loop on LR-08222, rolled back: hand-off → reply → reason → recommend → approve
+  //     → simulated window → outcome → report. Keyword fallback forced (no AI dependency).
+  let journey: Record<string, unknown> = {};
+  try {
+    await db.transaction(async (tx) => {
+      const { request } = await applyHandOff(tx, 'LR-08222', {
+        channel: 'voice_call',
+        reviewerName: 'db-verify',
+      });
+      const prepared = await prepareReply(
+        tx,
+        request.id,
+        'Money hard this month. Price too high now.',
+        { useLlm: false },
+      );
+      await applyReply(tx, prepared, {
+        text: 'Money hard this month. Price too high now.',
+        simulated: true,
+      });
+      const reasons = await getReasonsWith(tx, 'LR-08222');
+      const created = await applyPersistRecommendation(tx, 'LR-08222');
+      const { interventionId } = await applyApprove(tx, created.id, { reviewerName: 'db-verify' });
+      await applyAdvance(tx, interventionId, 'recover');
+      const { outcome } = await applyOutcome(tx, interventionId, { reviewerName: 'db-verify' });
+      const after = await summaryWith(tx);
+      journey = {
+        reason: reasons.primary?.id,
+        classifiedBy: prepared.classification.classifiedBy,
+        action: created.actionId,
+        outcome: outcome.outcomeType,
+        treated: `${after.treated.recovered}/${after.treated.n}`,
+      };
+      tx.rollback();
+    });
+  } catch (err) {
+    if (!(err instanceof TransactionRollbackError)) throw err;
+  }
+  check('full loop LR-08222 (rolled back)', journey, {
+    reason: 'affordability',
+    classifiedBy: 'keyword_fallback',
+    action: 'daily_mini_600',
+    outcome: 're_engaged',
+    treated: '3/7',
+  });
+  check('full loop rolled back (report unchanged)', (await summaryWith(db)).treated.n, 6);
 }
 
 main()
