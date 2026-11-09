@@ -27,6 +27,14 @@ const envSchema = z.object({
       (url) => !url.includes('ep-example-pooler'),
       'is still the placeholder from .env.example; paste your Neon pooled connection string',
     ),
+  /** Optional: without a key, reply classification uses the keyword fallback. */
+  OPENROUTER_API_KEY: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined),
+  OPENROUTER_MODEL: z.string().trim().min(1).default('openai/gpt-4o-mini'),
+  OPENROUTER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(8000),
 });
 
 const parsed = envSchema.safeParse(process.env);
