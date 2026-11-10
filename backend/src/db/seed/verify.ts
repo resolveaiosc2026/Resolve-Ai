@@ -10,6 +10,8 @@ import { loadDetectionSignals } from '../../modules/detect/detect.repository.js'
 import { executeDetection, type RunSummary } from '../../modules/detect/detect.service.js';
 import { summarizeUsage } from '../../modules/detect/scoring.js';
 import { applyApprove } from '../../modules/act/act.service.js';
+import { isNumericallyGrounded } from '../../modules/copilot/copilot.llm.js';
+import { ask as askCopilot } from '../../modules/copilot/copilot.service.js';
 import {
   applyAdvance,
   applyOutcome,
@@ -32,6 +34,7 @@ import {
 } from '../../modules/understand/understand.service.js';
 import { closeDatabase, db } from '../client.js';
 import {
+  aiConversations,
   campaignHistory,
   cases,
   customerFeedback,
@@ -456,6 +459,54 @@ async function main(): Promise<void> {
     treated: '3/7',
   });
   check('full loop rolled back (report unchanged)', (await summaryWith(db)).treated.n, 6);
+  // 18. F10: Copilot answers (template mode, no LLM) come from the backend aggregates.
+  const copilotExpect: [string, string, string][] = [
+    ['How many customers are at risk?', 'population', '1,284 subscribers were flagged'],
+    ['Which segment needs the most attention?', 'segment', 'needs the most attention'],
+    ['Why are customers disengaging?', 'reasons', 'is the most common likely reason'],
+    ['Is the pilot working?', 'pilot', '2 of 6 treated customers recovered'],
+    ['What should we do about affordability?', 'action', 'Daily Mini 600 MB for $0.60 at 62%'],
+    ['Tell me about LR-20417', 'customer', 'priority score of 87'],
+    ['Tell me about LR-99999', 'unknown', 'did not find a match'],
+  ];
+  let copilotTurns: { intent: string; answer: string }[] = [];
+  let storedThread = 0;
+  try {
+    await db.transaction(async (tx) => {
+      let conversationId: string | undefined;
+      for (const [question] of copilotExpect) {
+        const turn = await askCopilot(
+          { question, conversationId, style: 'template' },
+          { useLlm: false, executor: tx },
+        );
+        conversationId = turn.conversationId;
+        copilotTurns.push({ intent: turn.intent, answer: turn.answer });
+      }
+      storedThread = (
+        await tx
+          .select()
+          .from(aiConversations)
+          .where(eq(aiConversations.conversationId, conversationId ?? ''))
+      ).length;
+      tx.rollback();
+    });
+  } catch (err) {
+    if (!(err instanceof TransactionRollbackError)) throw err;
+  }
+  copilotExpect.forEach(([question, intent, snippet], i) => {
+    const turn = copilotTurns[i];
+    check(`copilot "${question}"`, [turn?.intent, turn?.answer.includes(snippet)], [intent, true]);
+  });
+  check('copilot thread stored (rolled back)', storedThread, copilotExpect.length);
+  copilotTurns = [];
+  check(
+    'copilot numeric guard rejects invented numbers',
+    [
+      isNumericallyGrounded('The pilot recovered 90% of customers.', 'Treated 2 of 6 (33%).', []),
+      isNumericallyGrounded('Two of six (33%) recovered.', 'Treated 2 of 6 (33%).', []),
+    ],
+    [false, true],
+  );
 }
 
 main()
