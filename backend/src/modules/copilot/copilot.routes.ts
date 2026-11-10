@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import * as service from './copilot.service.js';
 
-const chatBodySchema = z
+export const chatBodySchema = z
   .object({
     question: z.string().trim().min(1).max(500),
     conversationId: z.uuid().optional(),
@@ -11,7 +11,7 @@ const chatBodySchema = z
   })
   .strict();
 
-const conversationParamSchema = z.object({ conversationId: z.uuid() });
+export const conversationParamSchema = z.object({ conversationId: z.uuid() });
 
 /* /copilot: questions answered from the backend's own aggregates. */
 export const copilotRouter = Router();

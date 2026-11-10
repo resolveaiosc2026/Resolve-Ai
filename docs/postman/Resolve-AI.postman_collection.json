@@ -1,0 +1,3153 @@
+{
+  "info": {
+    "_postman_id": "6f1c2b8e-4c1a-4f7e-9d2a-5e7b1c0a9f31",
+    "name": "Resolve AI API",
+    "description": "Resolve AI backend v1.0.0: Detect → Understand → Recommend → Act → Measure → Report (synthetic data).\n\n1. Import this collection and an environment (Local or Railway) from docs/postman/.\n2. Run \"0. Demo journey\" with the Collection Runner: each step saves the IDs the next one needs.\n3. The other folders are a reference for every endpoint, with saved example responses.\n\nEnvelope: { data, meta? } / { error: { code, message, details? } }. Rate limits: AI 20/min, writes 120/min, reads 600/min.\nFull guide: docs/API.md. OpenAPI: {{baseUrl}}/openapi.json · interactive docs: {{baseUrl}}/docs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Demo journey (run in order)",
+      "description": "The whole loop on {{journeyCustomerId}}: hand-off → reply → reason → recommendation → approval → simulated window → outcome → measure → report → Copilot. Needs a freshly seeded database (`npm run db:seed`) and simulation enabled. To run it again without re-seeding, set journeyCustomerId to another customer that is awaiting a reply (e.g. LR-29623).",
+      "item": [
+        {
+          "name": "1. Hand off an ask to Orange (voice call)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('requestId', body.data.id);",
+                  "pm.test('handed off', () => pm.expect(body.data.status).to.eql('handed_off'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{journeyCustomerId}}/feedback-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{journeyCustomerId}}",
+                "feedback-requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"voice_call\",\n  \"reviewerName\": \"analyst.hui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Resolve AI records the hand-off; Orange's channel contacts the customer."
+          }
+        },
+        {
+          "name": "2. Orange's channel returns the reply (simulated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('classificationId', body.data.reasons.classificationId);",
+                  "pm.test('reason attached', () => pm.expect(body.data.reasons.primary).to.not.equal(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/simulation/feedback-requests/{{requestId}}/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "simulation",
+                "feedback-requests",
+                "{{requestId}}",
+                "reply"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Money hard this month o. Price too high now, I buy only small small bundle.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Demo only. The reply is classified by AI (keyword fallback without an API key)."
+          }
+        },
+        {
+          "name": "3. Reason view (Understand screen)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('classified', () => pm.expect(body.data.status).to.eql('classified'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{journeyCustomerId}}/reasons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{journeyCustomerId}}",
+                "reasons"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Live next-best action (Recommend screen)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('an action is recommended', () => pm.expect(body.data.recommended).to.not.equal(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{journeyCustomerId}}/recommendation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{journeyCustomerId}}",
+                "recommendation"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5. Persist the recommendation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('recommendationId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{journeyCustomerId}}/recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{journeyCustomerId}}",
+                "recommendations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "6. Approve (human sign-off) → intervention handed off",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('interventionRef', body.data.intervention.reference);",
+                  "pm.test('handed off to Orange', () => pm.expect(body.data.intervention.status).to.eql('handed_off'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/actions/{{recommendationId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actions",
+                "{{recommendationId}}",
+                "approve"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerName\": \"analyst.hui\",\n  \"window\": \"Today 16:00–18:00\",\n  \"note\": \"Customer says the big bundle is too dear.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "7. Simulate the 30-day window (demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('scenario applied', () => pm.expect(body.data.scenario).to.eql('recover'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/simulation/interventions/{{interventionRef}}/advance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "simulation",
+                "interventions",
+                "{{interventionRef}}",
+                "advance"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scenario\": \"recover\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "8. Measure the outcome",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('re-engaged', () => pm.expect(body.data.outcomeType).to.eql('re_engaged'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interventions/{{interventionRef}}/outcome",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interventions",
+                "{{interventionRef}}",
+                "outcome"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerName\": \"analyst.hui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "9. Measure view: timeline and verdict",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('recovered', () => pm.expect(body.data.verdict).to.eql('recovered'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{journeyCustomerId}}/measure",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{journeyCustomerId}}",
+                "measure"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10. Report: treated vs control",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('treated cohort grew', () => pm.expect(body.data.treated.n).to.be.above(6));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "summary"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11. Ask the Copilot about the customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('conversationId', body.data.conversationId);",
+                  "pm.test('customer intent', () => pm.expect(body.data.intent).to.eql('customer'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/copilot/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "copilot",
+                "chat"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Tell me about {{journeyCustomerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "System",
+      "description": "Service info, health and these docs.",
+      "item": [
+        {
+          "name": "Service info and documentation links",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Service info and documentation links"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": []
+                },
+                "description": "Service info and documentation links"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"service\": \"resolve-ai-backend\",\n    \"description\": \"Resolve AI decision-intelligence API: Detect → Understand → Recommend → Act → Measure → Report.\",\n    \"version\": \"1.0.0\",\n    \"environment\": \"development\",\n    \"simulation\": \"on\",\n    \"links\": {\n      \"docs\": \"/api/v1/docs\",\n      \"openapi\": \"/api/v1/openapi.json\",\n      \"health\": \"/api/v1/health\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Liveness, database reachability and simulation flag",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('database is up', () => pm.expect(pm.response.json().data.database.status).to.eql('up'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Liveness, database reachability and simulation flag\n\nReturns 503 with `status: \"degraded\"` (same shape) when the database is unreachable."
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                },
+                "description": "Liveness, database reachability and simulation flag\n\nReturns 503 with `status: \"degraded\"` (same shape) when the database is unreachable."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"status\": \"ok\",\n    \"service\": \"resolve-ai-backend\",\n    \"environment\": \"production\",\n    \"simulation\": \"on\",\n    \"uptimeSeconds\": 3600,\n    \"timestamp\": \"2026-11-10T12:00:00.000Z\",\n    \"database\": {\n      \"status\": \"up\",\n      \"latencyMs\": 41\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "This OpenAPI 3.1 document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "openapi.json"
+              ]
+            },
+            "description": "This OpenAPI 3.1 document"
+          },
+          "response": []
+        },
+        {
+          "name": "Interactive API reference (HTML)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "docs"
+              ]
+            },
+            "description": "Interactive API reference (HTML)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Detect",
+      "description": "Step 1. Compare each customer's recent bundle activity with their own baseline, flag meaningful change and score priority (the frontend's priorityQueue / detectSummary).",
+      "item": [
+        {
+          "name": "Priority queue (frontend priorityQueue())",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('has rows', () => pm.expect(pm.response.json().data.length).to.be.above(0));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/risk?pageSize=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "risk"
+              ],
+              "query": [
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Priority queue (frontend priorityQueue())\n\nOpen cases sorted by priority descending, then customer id. Filters and paging via query."
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/risk?pageSize=5",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "risk"
+                  ],
+                  "query": [
+                    {
+                      "key": "pageSize",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Priority queue (frontend priorityQueue())\n\nOpen cases sorted by priority descending, then customer id. Filters and paging via query."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"caseId\": \"00000000-0000-4000-8000-000000000010\",\n      \"customer\": {\n        \"id\": \"LR-20417\",\n        \"segment\": \"PDP reseller\",\n        \"region\": \"Sinkor\",\n        \"valueTier\": \"high\",\n        \"tenureMonths\": 38,\n        \"maskedMsisdn\": \"+231 77• ••• 231\",\n        \"daysSinceLastActivity\": 22,\n        \"careContacts30d\": 2,\n        \"networkFaultReports30d\": 0,\n        \"baselineActivationsPerMonth\": 18,\n        \"activationsPerMonthNow\": 6,\n        \"queueStatus\": \"new\",\n        \"flaggedAt\": \"2026-10-06T08:00:00.000Z\"\n      },\n      \"usage\": {\n        \"weeks\": [\n          {\n            \"weekStart\": \"2026-08-12\",\n            \"gb\": 1.56\n          },\n          {\n            \"weekStart\": \"2026-08-19\",\n            \"gb\": 1.43\n          },\n          {\n            \"weekStart\": \"2026-08-26\",\n            \"gb\": 1.42\n          },\n          {\n            \"weekStart\": \"2026-09-02\",\n            \"gb\": 1.48\n          },\n          {\n            \"weekStart\": \"2026-09-09\",\n            \"gb\": 1.43\n          },\n          {\n            \"weekStart\": \"2026-09-16\",\n            \"gb\": 1.62\n          },\n          {\n            \"weekStart\": \"2026-09-23\",\n            \"gb\": 1.43\n          },\n          {\n            \"weekStart\": \"2026-09-30\",\n            \"gb\": 1.63\n          },\n          {\n            \"weekStart\": \"2026-10-07\",\n            \"gb\": 0.46\n          },\n          {\n            \"weekStart\": \"2026-10-14\",\n            \"gb\": 0.44\n          },\n          {\n            \"weekStart\": \"2026-10-21\",\n            \"gb\": 0.48\n          },\n          {\n            \"weekStart\": \"2026-10-28\",\n            \"gb\": 0.45\n          }\n        ],\n        \"baselineGb\": 6.5,\n        \"currentGb\": 2,\n        \"changePct\": -69,\n        \"dropPct\": 0.69,\n        \"bandLowGb\": 5.72,\n        \"bandHighGb\": 7.28,\n        \"baselineActivations\": 18,\n        \"currentActivations\": 6\n      },\n      \"priority\": {\n        \"total\": 87,\n        \"band\": \"high\",\n        \"contributions\": [\n          {\n            \"key\": \"drop\",\n            \"max\": 40,\n            \"label\": \"Usage drop\",\n            \"detail\": \"-69% against their own 6.5 GB baseline\",\n            \"points\": 40\n          },\n          {\n            \"key\": \"value\",\n            \"max\": 18,\n            \"label\": \"Value tier\",\n            \"detail\": \"PDP reseller, High value tier\",\n            \"points\": 18\n          },\n          {\n            \"key\": \"tenure\",\n            \"max\": 15,\n            \"label\": \"Tenure\",\n            \"detail\": \"38 months on the network\",\n            \"points\": 13\n          },\n          {\n            \"key\": \"inactivity\",\n            \"max\": 12,\n            \"label\": \"Days inactive\",\n            \"detail\": \"22 days since last activity\",\n            \"points\": 10\n          },\n          {\n            \"key\": \"care\",\n            \"max\": 8,\n            \"label\": \"Recent care contact\",\n            \"detail\": \"2 care contacts in the last 30 days\",\n            \"points\": 6\n          }\n        ]\n      },\n      \"status\": \"new\",\n      \"reasonLabel\": \"Affordability\"\n    },\n    {\n      \"caseId\": \"00000000-0000-4000-8000-000000000011\",\n      \"customer\": {\n        \"id\": \"LR-26878\",\n        \"segment\": \"Home fix\",\n        \"region\": \"Sinkor\",\n        \"valueTier\": \"high\",\n        \"tenureMonths\": 28,\n        \"maskedMsisdn\": \"+231 77• ••• 386\",\n        \"daysSinceLastActivity\": 21,\n        \"careContacts30d\": 2,\n        \"networkFaultReports30d\": 0,\n        \"baselineActivationsPerMonth\": 12,\n        \"activationsPerMonthNow\": 9,\n        \"queueStatus\": \"awaiting_reply\",\n        \"flaggedAt\": \"2026-10-07T08:00:00.000Z\"\n      },\n      \"usage\": {\n        \"weeks\": [\n          {\n            \"weekStart\": \"2026-08-12\",\n            \"gb\": 0.85\n          },\n          {\n            \"weekStart\": \"2026-08-19\",\n            \"gb\": 0.86\n          },\n          {\n            \"weekStart\": \"2026-08-26\",\n            \"gb\": 0.85\n          },\n          {\n            \"weekStart\": \"2026-09-02\",\n            \"gb\": 0.81\n          },\n          {\n            \"weekStart\": \"2026-09-09\",\n            \"gb\": 0.82\n          },\n          {\n            \"weekStart\": \"2026-09-16\",\n            \"gb\": 0.79\n          },\n          {\n            \"weekStart\": \"2026-09-23\",\n            \"gb\": 0.9\n          },\n          {\n            \"weekStart\": \"2026-09-30\",\n            \"gb\": 0.78\n          },\n          {\n            \"weekStart\": \"2026-10-07\",\n            \"gb\": 0.35\n          },\n          {\n            \"weekStart\": \"2026-10-14\",\n            \"gb\": 0.38\n          },\n          {\n            \"weekStart\": \"2026-10-21\",\n            \"gb\": 0.36\n          },\n          {\n            \"weekStart\": \"2026-10-28\",\n            \"gb\": 0.4\n          }\n        ],\n        \"baselineGb\": 3.6,\n        \"currentGb\": 1.6,\n        \"changePct\": -56,\n        \"dropPct\": 0.56,\n        \"bandLowGb\": 3.17,\n        \"bandHighGb\": 4.03,\n        \"baselineActivations\": 12,\n        \"currentActivations\": 9\n      },\n      \"priority\": {\n        \"total\": 75,\n        \"band\": \"high\",\n        \"contributions\": [\n          {\n            \"key\": \"drop\",\n            \"max\": 40,\n            \"label\": \"Usage drop\",\n            \"detail\": \"-56% against their own 3.6 GB baseline\",\n            \"points\": 32\n          },\n          {\n            \"key\": \"value\",\n            \"max\": 18,\n            \"label\": \"Value tier\",\n            \"detail\": \"Home fix, High value tier\",\n            \"points\": 18\n          },\n          {\n            \"key\": \"tenure\",\n            \"max\": 15,\n            \"label\": \"Tenure\",\n            \"detail\": \"28 months on the network\",\n            \"points\": 9\n          },\n          {\n            \"key\": \"inactivity\",\n            \"max\": 12,\n            \"label\": \"Days inactive\",\n            \"detail\": \"21 days since last activity\",\n            \"points\": 10\n          },\n          {\n            \"key\": \"care\",\n            \"max\": 8,\n            \"label\": \"Recent care contact\",\n            \"detail\": \"2 care contacts in the last 30 days\",\n            \"points\": 6\n          }\n        ]\n      },\n      \"status\": \"awaiting_reply\",\n      \"reasonLabel\": \"Awaiting reply\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 2,\n    \"total\": 45\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Detect KPIs and risk distribution (frontend detectSummary())",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/risk/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "risk",
+                "summary"
+              ]
+            },
+            "description": "Detect KPIs and risk distribution (frontend detectSummary())\n\nTop-level figures come from the synthetic population (`simulated: true`); `pilot` has live counts for the 45-case sample."
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/risk/summary",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "risk",
+                    "summary"
+                  ]
+                },
+                "description": "Detect KPIs and risk distribution (frontend detectSummary())\n\nTop-level figures come from the synthetic population (`simulated: true`); `pilot` has live counts for the 45-case sample."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"runId\": \"RUN-2026-10-28-01\",\n    \"flagged\": 1284,\n    \"subscribersScored\": 41820,\n    \"awaitingReply\": 463,\n    \"readyForAction\": 218,\n    \"actionsAwaitingApproval\": 47,\n    \"minimumDaysInactive\": 19,\n    \"pilotSample\": 45,\n    \"historyRecoveryRate\": 45,\n    \"bands\": [\n      {\n        \"key\": \"high\",\n        \"label\": \"High risk\",\n        \"band\": \"high\",\n        \"count\": 312,\n        \"pct\": 24\n      },\n      {\n        \"key\": \"medium\",\n        \"label\": \"Medium risk\",\n        \"band\": \"medium\",\n        \"count\": 541,\n        \"pct\": 42\n      },\n      {\n        \"key\": \"low\",\n        \"label\": \"Low risk\",\n        \"band\": \"low\",\n        \"count\": 431,\n        \"pct\": 34\n      }\n    ],\n    \"simulated\": true,\n    \"pilot\": {\n      \"total\": 45,\n      \"bands\": [\n        {\n          \"key\": \"high\",\n          \"label\": \"High risk\",\n          \"band\": \"high\",\n          \"count\": 2,\n          \"pct\": 4\n        },\n        {\n          \"key\": \"medium\",\n          \"label\": \"Medium risk\",\n          \"band\": \"medium\",\n          \"count\": 17,\n          \"pct\": 38\n        },\n        {\n          \"key\": \"low\",\n          \"label\": \"Low risk\",\n          \"band\": \"low\",\n          \"count\": 26,\n          \"pct\": 58\n        }\n      ],\n      \"statuses\": {\n        \"new\": 13,\n        \"awaiting_reply\": 9,\n        \"unclassified\": 5,\n        \"action_done\": 18\n      }\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "One queue row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/risk/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "risk",
+                "{{customerId}}"
+              ]
+            },
+            "description": "One queue row"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/risk/{{customerId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "risk",
+                    "{{customerId}}"
+                  ]
+                },
+                "description": "One queue row"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"caseId\": \"00000000-0000-4000-8000-000000000010\",\n    \"customer\": {\n      \"id\": \"LR-20417\",\n      \"segment\": \"PDP reseller\",\n      \"region\": \"Sinkor\",\n      \"valueTier\": \"high\",\n      \"tenureMonths\": 38,\n      \"maskedMsisdn\": \"+231 77• ••• 231\",\n      \"daysSinceLastActivity\": 22,\n      \"careContacts30d\": 2,\n      \"networkFaultReports30d\": 0,\n      \"baselineActivationsPerMonth\": 18,\n      \"activationsPerMonthNow\": 6,\n      \"queueStatus\": \"new\",\n      \"flaggedAt\": \"2026-10-06T08:00:00.000Z\"\n    },\n    \"usage\": {\n      \"weeks\": [\n        {\n          \"weekStart\": \"2026-08-12\",\n          \"gb\": 1.56\n        },\n        {\n          \"weekStart\": \"2026-08-19\",\n          \"gb\": 1.43\n        },\n        {\n          \"weekStart\": \"2026-08-26\",\n          \"gb\": 1.42\n        },\n        {\n          \"weekStart\": \"2026-09-02\",\n          \"gb\": 1.48\n        },\n        {\n          \"weekStart\": \"2026-09-09\",\n          \"gb\": 1.43\n        },\n        {\n          \"weekStart\": \"2026-09-16\",\n          \"gb\": 1.62\n        },\n        {\n          \"weekStart\": \"2026-09-23\",\n          \"gb\": 1.43\n        },\n        {\n          \"weekStart\": \"2026-09-30\",\n          \"gb\": 1.63\n        },\n        {\n          \"weekStart\": \"2026-10-07\",\n          \"gb\": 0.46\n        },\n        {\n          \"weekStart\": \"2026-10-14\",\n          \"gb\": 0.44\n        },\n        {\n          \"weekStart\": \"2026-10-21\",\n          \"gb\": 0.48\n        },\n        {\n          \"weekStart\": \"2026-10-28\",\n          \"gb\": 0.45\n        }\n      ],\n      \"baselineGb\": 6.5,\n      \"currentGb\": 2,\n      \"changePct\": -69,\n      \"dropPct\": 0.69,\n      \"bandLowGb\": 5.72,\n      \"bandHighGb\": 7.28,\n      \"baselineActivations\": 18,\n      \"currentActivations\": 6\n    },\n    \"priority\": {\n      \"total\": 87,\n      \"band\": \"high\",\n      \"contributions\": [\n        {\n          \"key\": \"drop\",\n          \"max\": 40,\n          \"label\": \"Usage drop\",\n          \"detail\": \"-69% against their own 6.5 GB baseline\",\n          \"points\": 40\n        },\n        {\n          \"key\": \"value\",\n          \"max\": 18,\n          \"label\": \"Value tier\",\n          \"detail\": \"PDP reseller, High value tier\",\n          \"points\": 18\n        },\n        {\n          \"key\": \"tenure\",\n          \"max\": 15,\n          \"label\": \"Tenure\",\n          \"detail\": \"38 months on the network\",\n          \"points\": 13\n        },\n        {\n          \"key\": \"inactivity\",\n          \"max\": 12,\n          \"label\": \"Days inactive\",\n          \"detail\": \"22 days since last activity\",\n          \"points\": 10\n        },\n        {\n          \"key\": \"care\",\n          \"max\": 8,\n          \"label\": \"Recent care contact\",\n          \"detail\": \"2 care contacts in the last 30 days\",\n          \"points\": 6\n        }\n      ]\n    },\n    \"status\": \"new\",\n    \"reasonLabel\": \"Affordability\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Customer list (sorted by id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers?pageSize=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Customer list (sorted by id)"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/customers?pageSize=5",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers"
+                  ],
+                  "query": [
+                    {
+                      "key": "pageSize",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Customer list (sorted by id)"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"caseId\": \"00000000-0000-4000-8000-000000000012\",\n      \"customer\": {\n        \"id\": \"LR-00714\",\n        \"segment\": \"Home fix\",\n        \"region\": \"Ganta\",\n        \"valueTier\": \"medium\",\n        \"tenureMonths\": 45,\n        \"maskedMsisdn\": \"+231 77• ••• 535\",\n        \"daysSinceLastActivity\": 18,\n        \"careContacts30d\": 1,\n        \"networkFaultReports30d\": 2,\n        \"baselineActivationsPerMonth\": 8,\n        \"activationsPerMonthNow\": 6,\n        \"queueStatus\": \"awaiting_reply\",\n        \"flaggedAt\": \"2026-10-10T08:00:00.000Z\"\n      },\n      \"priority\": {\n        \"total\": 53,\n        \"band\": \"low\"\n      },\n      \"status\": \"awaiting_reply\",\n      \"reasonLabel\": \"Awaiting reply\"\n    },\n    {\n      \"caseId\": \"00000000-0000-4000-8000-000000000013\",\n      \"customer\": {\n        \"id\": \"LR-08222\",\n        \"segment\": \"Home fix\",\n        \"region\": \"Monrovia\",\n        \"valueTier\": \"high\",\n        \"tenureMonths\": 40,\n        \"maskedMsisdn\": \"+231 77• ••• 756\",\n        \"daysSinceLastActivity\": 20,\n        \"careContacts30d\": 1,\n        \"networkFaultReports30d\": 0,\n        \"baselineActivationsPerMonth\": 11,\n        \"activationsPerMonthNow\": 8,\n        \"queueStatus\": \"awaiting_reply\",\n        \"flaggedAt\": \"2026-10-08T08:00:00.000Z\"\n      },\n      \"priority\": {\n        \"total\": 58,\n        \"band\": \"medium\"\n      },\n      \"status\": \"awaiting_reply\",\n      \"reasonLabel\": \"Awaiting reply\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 2,\n    \"total\": 45\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Customer 360 (usage, priority, monthly metrics)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
+              ]
+            },
+            "description": "Customer 360 (usage, priority, monthly metrics)"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/customers/{{customerId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    "{{customerId}}"
+                  ]
+                },
+                "description": "Customer 360 (usage, priority, monthly metrics)"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"caseId\": \"00000000-0000-4000-8000-000000000010\",\n    \"customer\": {\n      \"id\": \"LR-20417\",\n      \"segment\": \"PDP reseller\",\n      \"region\": \"Sinkor\",\n      \"valueTier\": \"high\",\n      \"tenureMonths\": 38,\n      \"maskedMsisdn\": \"+231 77• ••• 231\",\n      \"daysSinceLastActivity\": 22,\n      \"careContacts30d\": 2,\n      \"networkFaultReports30d\": 0,\n      \"baselineActivationsPerMonth\": 18,\n      \"activationsPerMonthNow\": 6,\n      \"queueStatus\": \"new\",\n      \"flaggedAt\": \"2026-10-06T08:00:00.000Z\"\n    },\n    \"usage\": {\n      \"weeks\": [\n        {\n          \"weekStart\": \"2026-08-12\",\n          \"gb\": 1.56\n        },\n        {\n          \"weekStart\": \"2026-08-19\",\n          \"gb\": 1.43\n        },\n        {\n          \"weekStart\": \"2026-08-26\",\n          \"gb\": 1.42\n        },\n        {\n          \"weekStart\": \"2026-09-02\",\n          \"gb\": 1.48\n        },\n        {\n          \"weekStart\": \"2026-09-09\",\n          \"gb\": 1.43\n        },\n        {\n          \"weekStart\": \"2026-09-16\",\n          \"gb\": 1.62\n        },\n        {\n          \"weekStart\": \"2026-09-23\",\n          \"gb\": 1.43\n        },\n        {\n          \"weekStart\": \"2026-09-30\",\n          \"gb\": 1.63\n        },\n        {\n          \"weekStart\": \"2026-10-07\",\n          \"gb\": 0.46\n        },\n        {\n          \"weekStart\": \"2026-10-14\",\n          \"gb\": 0.44\n        },\n        {\n          \"weekStart\": \"2026-10-21\",\n          \"gb\": 0.48\n        },\n        {\n          \"weekStart\": \"2026-10-28\",\n          \"gb\": 0.45\n        }\n      ],\n      \"baselineGb\": 6.5,\n      \"currentGb\": 2,\n      \"changePct\": -69,\n      \"dropPct\": 0.69,\n      \"bandLowGb\": 5.72,\n      \"bandHighGb\": 7.28,\n      \"baselineActivations\": 18,\n      \"currentActivations\": 6\n    },\n    \"priority\": {\n      \"total\": 87,\n      \"band\": \"high\",\n      \"contributions\": [\n        {\n          \"key\": \"drop\",\n          \"max\": 40,\n          \"label\": \"Usage drop\",\n          \"detail\": \"-69% against their own 6.5 GB baseline\",\n          \"points\": 40\n        },\n        {\n          \"key\": \"value\",\n          \"max\": 18,\n          \"label\": \"Value tier\",\n          \"detail\": \"PDP reseller, High value tier\",\n          \"points\": 18\n        },\n        {\n          \"key\": \"tenure\",\n          \"max\": 15,\n          \"label\": \"Tenure\",\n          \"detail\": \"38 months on the network\",\n          \"points\": 13\n        },\n        {\n          \"key\": \"inactivity\",\n          \"max\": 12,\n          \"label\": \"Days inactive\",\n          \"detail\": \"22 days since last activity\",\n          \"points\": 10\n        },\n        {\n          \"key\": \"care\",\n          \"max\": 8,\n          \"label\": \"Recent care contact\",\n          \"detail\": \"2 care contacts in the last 30 days\",\n          \"points\": 6\n        }\n      ]\n    },\n    \"status\": \"new\",\n    \"reasonLabel\": \"Affordability\",\n    \"metrics\": {\n      \"baseline\": {\n        \"activations\": 18,\n        \"dataGb\": 6.5,\n        \"spendUsd\": 24.85,\n        \"spendLrd\": 1691,\n        \"spendUsdEquivalent\": 33.75,\n        \"activeDays\": 13,\n        \"failedActivationRate\": 0,\n        \"daysSinceLastActivity\": 1\n      },\n      \"current\": {\n        \"activations\": 6,\n        \"dataGb\": 2,\n        \"spendUsd\": 7,\n        \"spendLrd\": 1330,\n        \"spendUsdEquivalent\": 14,\n        \"activeDays\": 5,\n        \"failedActivationRate\": 0,\n        \"daysSinceLastActivity\": 22\n      }\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Priority bands and breakdown by customer segment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/segments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "segments"
+              ]
+            },
+            "description": "Priority bands and breakdown by customer segment"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/segments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "segments"
+                  ]
+                },
+                "description": "Priority bands and breakdown by customer segment"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"bands\": [\n      {\n        \"id\": \"high\",\n        \"label\": \"High risk\",\n        \"minScore\": 75,\n        \"count\": 2,\n        \"pct\": 4\n      },\n      {\n        \"id\": \"medium\",\n        \"label\": \"Medium risk\",\n        \"minScore\": 55,\n        \"count\": 17,\n        \"pct\": 38\n      },\n      {\n        \"id\": \"low\",\n        \"label\": \"Low risk\",\n        \"minScore\": 0,\n        \"count\": 26,\n        \"pct\": 58\n      }\n    ],\n    \"population\": {\n      \"simulated\": true,\n      \"flagged\": 1284,\n      \"bands\": [\n        {\n          \"id\": \"high\",\n          \"label\": \"High risk\",\n          \"count\": 312,\n          \"pct\": 24\n        },\n        {\n          \"id\": \"medium\",\n          \"label\": \"Medium risk\",\n          \"count\": 541,\n          \"pct\": 42\n        },\n        {\n          \"id\": \"low\",\n          \"label\": \"Low risk\",\n          \"count\": 431,\n          \"pct\": 34\n        }\n      ]\n    },\n    \"bySegment\": [\n      {\n        \"segment\": \"Home fix\",\n        \"count\": 11,\n        \"avgPriority\": 53.4\n      },\n      {\n        \"segment\": \"PDP reseller\",\n        \"count\": 10,\n        \"avgPriority\": 47.7\n      },\n      {\n        \"segment\": \"Small business\",\n        \"count\": 8,\n        \"avgPriority\": 54.5\n      },\n      {\n        \"segment\": \"WhatsApp payer\",\n        \"count\": 7,\n        \"avgPriority\": 50\n      },\n      {\n        \"segment\": \"Android top-up\",\n        \"count\": 5,\n        \"avgPriority\": 48.4\n      },\n      {\n        \"segment\": \"Family top-up\",\n        \"count\": 3,\n        \"avgPriority\": 60\n      },\n      {\n        \"segment\": \"Parent bundle\",\n        \"count\": 1,\n        \"avgPriority\": 69\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Queue rows for one band",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/segments/high",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "segments",
+                "high"
+              ]
+            },
+            "description": "Queue rows for one band"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/segments/high",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "segments",
+                    "high"
+                  ]
+                },
+                "description": "Queue rows for one band"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"caseId\": \"00000000-0000-4000-8000-000000000010\",\n      \"customer\": {\n        \"id\": \"LR-20417\",\n        \"segment\": \"PDP reseller\",\n        \"region\": \"Sinkor\",\n        \"valueTier\": \"high\",\n        \"tenureMonths\": 38,\n        \"maskedMsisdn\": \"+231 77• ••• 231\",\n        \"daysSinceLastActivity\": 22,\n        \"careContacts30d\": 2,\n        \"networkFaultReports30d\": 0,\n        \"baselineActivationsPerMonth\": 18,\n        \"activationsPerMonthNow\": 6,\n        \"queueStatus\": \"new\",\n        \"flaggedAt\": \"2026-10-06T08:00:00.000Z\"\n      },\n      \"usage\": {\n        \"weeks\": [\n          {\n            \"weekStart\": \"2026-08-12\",\n            \"gb\": 1.56\n          },\n          {\n            \"weekStart\": \"2026-08-19\",\n            \"gb\": 1.43\n          },\n          {\n            \"weekStart\": \"2026-08-26\",\n            \"gb\": 1.42\n          },\n          {\n            \"weekStart\": \"2026-09-02\",\n            \"gb\": 1.48\n          },\n          {\n            \"weekStart\": \"2026-09-09\",\n            \"gb\": 1.43\n          },\n          {\n            \"weekStart\": \"2026-09-16\",\n            \"gb\": 1.62\n          },\n          {\n            \"weekStart\": \"2026-09-23\",\n            \"gb\": 1.43\n          },\n          {\n            \"weekStart\": \"2026-09-30\",\n            \"gb\": 1.63\n          },\n          {\n            \"weekStart\": \"2026-10-07\",\n            \"gb\": 0.46\n          },\n          {\n            \"weekStart\": \"2026-10-14\",\n            \"gb\": 0.44\n          },\n          {\n            \"weekStart\": \"2026-10-21\",\n            \"gb\": 0.48\n          },\n          {\n            \"weekStart\": \"2026-10-28\",\n            \"gb\": 0.45\n          }\n        ],\n        \"baselineGb\": 6.5,\n        \"currentGb\": 2,\n        \"changePct\": -69,\n        \"dropPct\": 0.69,\n        \"bandLowGb\": 5.72,\n        \"bandHighGb\": 7.28,\n        \"baselineActivations\": 18,\n        \"currentActivations\": 6\n      },\n      \"priority\": {\n        \"total\": 87,\n        \"band\": \"high\",\n        \"contributions\": [\n          {\n            \"key\": \"drop\",\n            \"max\": 40,\n            \"label\": \"Usage drop\",\n            \"detail\": \"-69% against their own 6.5 GB baseline\",\n            \"points\": 40\n          },\n          {\n            \"key\": \"value\",\n            \"max\": 18,\n            \"label\": \"Value tier\",\n            \"detail\": \"PDP reseller, High value tier\",\n            \"points\": 18\n          },\n          {\n            \"key\": \"tenure\",\n            \"max\": 15,\n            \"label\": \"Tenure\",\n            \"detail\": \"38 months on the network\",\n            \"points\": 13\n          },\n          {\n            \"key\": \"inactivity\",\n            \"max\": 12,\n            \"label\": \"Days inactive\",\n            \"detail\": \"22 days since last activity\",\n            \"points\": 10\n          },\n          {\n            \"key\": \"care\",\n            \"max\": 8,\n            \"label\": \"Recent care contact\",\n            \"detail\": \"2 care contacts in the last 30 days\",\n            \"points\": 6\n          }\n        ]\n      },\n      \"status\": \"new\",\n      \"reasonLabel\": \"Affordability\"\n    },\n    {\n      \"caseId\": \"00000000-0000-4000-8000-000000000011\",\n      \"customer\": {\n        \"id\": \"LR-26878\",\n        \"segment\": \"Home fix\",\n        \"region\": \"Sinkor\",\n        \"valueTier\": \"high\",\n        \"tenureMonths\": 28,\n        \"maskedMsisdn\": \"+231 77• ••• 386\",\n        \"daysSinceLastActivity\": 21,\n        \"careContacts30d\": 2,\n        \"networkFaultReports30d\": 0,\n        \"baselineActivationsPerMonth\": 12,\n        \"activationsPerMonthNow\": 9,\n        \"queueStatus\": \"awaiting_reply\",\n        \"flaggedAt\": \"2026-10-07T08:00:00.000Z\"\n      },\n      \"usage\": {\n        \"weeks\": [\n          {\n            \"weekStart\": \"2026-08-12\",\n            \"gb\": 0.85\n          },\n          {\n            \"weekStart\": \"2026-08-19\",\n            \"gb\": 0.86\n          },\n          {\n            \"weekStart\": \"2026-08-26\",\n            \"gb\": 0.85\n          },\n          {\n            \"weekStart\": \"2026-09-02\",\n            \"gb\": 0.81\n          },\n          {\n            \"weekStart\": \"2026-09-09\",\n            \"gb\": 0.82\n          },\n          {\n            \"weekStart\": \"2026-09-16\",\n            \"gb\": 0.79\n          },\n          {\n            \"weekStart\": \"2026-09-23\",\n            \"gb\": 0.9\n          },\n          {\n            \"weekStart\": \"2026-09-30\",\n            \"gb\": 0.78\n          },\n          {\n            \"weekStart\": \"2026-10-07\",\n            \"gb\": 0.35\n          },\n          {\n            \"weekStart\": \"2026-10-14\",\n            \"gb\": 0.38\n          },\n          {\n            \"weekStart\": \"2026-10-21\",\n            \"gb\": 0.36\n          },\n          {\n            \"weekStart\": \"2026-10-28\",\n            \"gb\": 0.4\n          }\n        ],\n        \"baselineGb\": 3.6,\n        \"currentGb\": 1.6,\n        \"changePct\": -56,\n        \"dropPct\": 0.56,\n        \"bandLowGb\": 3.17,\n        \"bandHighGb\": 4.03,\n        \"baselineActivations\": 12,\n        \"currentActivations\": 9\n      },\n      \"priority\": {\n        \"total\": 75,\n        \"band\": \"high\",\n        \"contributions\": [\n          {\n            \"key\": \"drop\",\n            \"max\": 40,\n            \"label\": \"Usage drop\",\n            \"detail\": \"-56% against their own 3.6 GB baseline\",\n            \"points\": 32\n          },\n          {\n            \"key\": \"value\",\n            \"max\": 18,\n            \"label\": \"Value tier\",\n            \"detail\": \"Home fix, High value tier\",\n            \"points\": 18\n          },\n          {\n            \"key\": \"tenure\",\n            \"max\": 15,\n            \"label\": \"Tenure\",\n            \"detail\": \"28 months on the network\",\n            \"points\": 9\n          },\n          {\n            \"key\": \"inactivity\",\n            \"max\": 12,\n            \"label\": \"Days inactive\",\n            \"detail\": \"21 days since last activity\",\n            \"points\": 10\n          },\n          {\n            \"key\": \"care\",\n            \"max\": 8,\n            \"label\": \"Recent care contact\",\n            \"detail\": \"2 care contacts in the last 30 days\",\n            \"points\": 6\n          }\n        ]\n      },\n      \"status\": \"awaiting_reply\",\n      \"reasonLabel\": \"Awaiting reply\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 2,\n    \"total\": 2\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Latest detection run",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/detection-runs/latest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection-runs",
+                "latest"
+              ]
+            },
+            "description": "Latest detection run"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/detection-runs/latest",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "detection-runs",
+                    "latest"
+                  ]
+                },
+                "description": "Latest detection run"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"RUN-2026-10-28-01\",\n    \"asOf\": \"2026-10-28T08:00:00.000Z\",\n    \"modelVersion\": \"rules-v1\",\n    \"baselineWeeks\": 8,\n    \"currentWeeks\": 4,\n    \"customersScored\": 45,\n    \"casesInRun\": 45,\n    \"hasSimulatedPopulation\": true\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Re-run detection from stored behaviour",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/detection-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection-runs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Re-run detection from stored behaviour\n\nDefault `asOf` = the latest run's date (dataset snapshot). Updates open cases' scores without changing their queue status."
+          },
+          "response": [
+            {
+              "name": "201 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/detection-runs",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "detection-runs"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Re-run detection from stored behaviour\n\nDefault `asOf` = the latest run's date (dataset snapshot). Updates open cases' scores without changing their queue status."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"RUN-2026-10-28-02\",\n    \"asOf\": \"2026-10-28T08:00:00.000Z\",\n    \"modelVersion\": \"rules-v1\",\n    \"customersScored\": 45,\n    \"flagged\": 45,\n    \"newCases\": 0,\n    \"updatedCases\": 45,\n    \"bands\": {\n      \"high\": 2,\n      \"medium\": 17,\n      \"low\": 26\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Understand",
+      "description": "Step 2. Find the likely reason: behavioural evidence first; otherwise hand a feedback request to an existing Orange channel and normalize the customer's reply (AI with keyword fallback). Resolve AI never contacts customers itself.",
+      "item": [
+        {
+          "name": "The case's reason + evidence assessment (frontend classifyReason())",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/reasons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}",
+                "reasons"
+              ]
+            },
+            "description": "The case's reason + evidence assessment (frontend classifyReason())"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/customers/{{customerId}}/reasons",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    "{{customerId}}",
+                    "reasons"
+                  ]
+                },
+                "description": "The case's reason + evidence assessment (frontend classifyReason())"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"caseId\": \"00000000-0000-4000-8000-000000000010\",\n    \"classificationId\": \"00000000-0000-4000-8000-000000000014\",\n    \"status\": \"classified\",\n    \"primary\": {\n      \"id\": \"affordability\",\n      \"label\": \"Affordability\",\n      \"icon\": \"wallet\",\n      \"confidence\": 0.862\n    },\n    \"alternatives\": [\n      {\n        \"id\": \"reduced_need\",\n        \"label\": \"Reduced need\",\n        \"icon\": \"arrow-down\",\n        \"confidence\": 0.041\n      },\n      {\n        \"id\": \"competitor\",\n        \"label\": \"Competitor\",\n        \"icon\": \"swap\",\n        \"confidence\": 0.024\n      },\n      {\n        \"id\": \"network_quality\",\n        \"label\": \"Network quality\",\n        \"icon\": \"signal-slash\",\n        \"confidence\": 0.024\n      },\n      {\n        \"id\": \"activation_difficulty\",\n        \"label\": \"Activation difficulty\",\n        \"icon\": \"cursor-alert\",\n        \"confidence\": 0.024\n      },\n      {\n        \"id\": \"unknown\",\n        \"label\": \"Unknown\",\n        \"icon\": \"question\",\n        \"confidence\": 0.024\n      }\n    ],\n    \"evidence\": [\n      {\n        \"body\": \"\\\"Money hard this month. Buy small weekly.\\\" — cost language points to price pressure, and \\\"small\\\" points to buying in smaller sums.\",\n        \"kind\": \"behavioural\",\n        \"title\": \"Behavioural signal — the customer's own words\"\n      },\n      {\n        \"body\": \"6 bundle activations this month against their own baseline of 18 per month (-69%).\",\n        \"kind\": \"usage\",\n        \"title\": \"Usage pattern\"\n      },\n      {\n        \"body\": \"No fault reported from this customer in 22 days, and no fault logged in Sinkor. Network quality is not supported by the evidence.\",\n        \"kind\": \"exclusion\",\n        \"title\": \"Network faults checked\"\n      }\n    ],\n    \"feedback\": {\n      \"requestId\": \"00000000-0000-4000-8000-000000000015\",\n      \"askedAt\": \"2026-10-12T08:00:00.000Z\",\n      \"channel\": \"Orange SMS\",\n      \"channelId\": \"sms\",\n      \"question\": \"Orange: We noticed your bundle use dropped. Reply with one number: 1 Price 2 Network 3 Not using much 4 Using another line 5 Something else\",\n      \"replyReceived\": true,\n      \"repliedAt\": \"2026-10-12T15:00:00.000Z\",\n      \"classifiedBy\": \"analyst.hui\",\n      \"classifiedAt\": \"2026-10-14T16:00:00.000Z\",\n      \"verbatim\": \"Money hard this month. Buy small weekly.\"\n    },\n    \"source\": \"feedback\",\n    \"review\": {\n      \"reasonId\": \"affordability\",\n      \"reviewedBy\": \"analyst.hui\",\n      \"reviewedAt\": \"2026-10-24T08:00:00.000Z\"\n    },\n    \"assessment\": {\n      \"nextStep\": \"classified\",\n      \"reasonKnown\": true,\n      \"signals\": []\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Accept strong behavioural evidence as the reason (human-confirmed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/LR-14806/reasons/evidence",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "LR-14806",
+                "reasons",
+                "evidence"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerName\": \"analyst.hui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Accept strong behavioural evidence as the reason (human-confirmed)\n\nNeeds evidence strength ≥ 0.80. Case moves to `ready`."
+          },
+          "response": []
+        },
+        {
+          "name": "Feedback queue (requests handed off to Orange channels)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedback-requests?status=handed_off&pageSize=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feedback-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "handed_off"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Feedback queue (requests handed off to Orange channels)"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/feedback-requests?status=handed_off&pageSize=5",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "feedback-requests"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "handed_off"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Feedback queue (requests handed off to Orange channels)"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000016\",\n      \"caseId\": \"00000000-0000-4000-8000-000000000011\",\n      \"customerId\": \"LR-26878\",\n      \"segment\": \"Home fix\",\n      \"region\": \"Sinkor\",\n      \"priority\": {\n        \"total\": 75,\n        \"band\": \"high\"\n      },\n      \"queueStatus\": \"awaiting_reply\",\n      \"channel\": \"Orange SMS\",\n      \"channelId\": \"sms\",\n      \"question\": \"Orange: We noticed your bundle use dropped. Reply with one number: 1 Price 2 Network 3 Not using much 4 Using another line 5 Something else\",\n      \"status\": \"handed_off\",\n      \"triggerReason\": \"no_evidence\",\n      \"createdAt\": \"2026-10-13T08:00:00.000Z\",\n      \"handedOffAt\": \"2026-10-13T08:00:00.000Z\",\n      \"respondedAt\": null,\n      \"reply\": null\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000017\",\n      \"caseId\": \"00000000-0000-4000-8000-000000000018\",\n      \"customerId\": \"LR-29099\",\n      \"segment\": \"WhatsApp payer\",\n      \"region\": \"Ganta\",\n      \"priority\": {\n        \"total\": 63,\n        \"band\": \"medium\"\n      },\n      \"queueStatus\": \"action_done\",\n      \"channel\": \"Orange SMS\",\n      \"channelId\": \"sms\",\n      \"question\": \"Orange: We noticed your bundle use dropped. Reply with one number: 1 Price 2 Network 3 Not using much 4 Using another line 5 Something else\",\n      \"status\": \"handed_off\",\n      \"triggerReason\": \"no_evidence\",\n      \"createdAt\": \"2026-10-17T08:00:00.000Z\",\n      \"handedOffAt\": \"2026-10-17T08:00:00.000Z\",\n      \"respondedAt\": null,\n      \"reply\": null\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 2,\n    \"total\": 22\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Cases that should get a feedback request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedback-requests/suggestions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feedback-requests",
+                "suggestions"
+              ]
+            },
+            "description": "Cases that should get a feedback request\n\nEmpty on the seeded data (every pilot case already has a request)."
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/feedback-requests/suggestions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "feedback-requests",
+                    "suggestions"
+                  ]
+                },
+                "description": "Cases that should get a feedback request\n\nEmpty on the seeded data (every pilot case already has a request)."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Hand an ask to an Orange channel (Resolve AI does not contact the customer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{journeyCustomerId}}/feedback-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{journeyCustomerId}}",
+                "feedback-requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"sms\",\n  \"reviewerName\": \"analyst.hui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Hand an ask to an Orange channel (Resolve AI does not contact the customer)\n\nAn unanswered ask older than 7 days becomes `no_response` and a follow-up is allowed."
+          },
+          "response": [
+            {
+              "name": "201 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/customers/{{journeyCustomerId}}/feedback-requests",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    "{{journeyCustomerId}}",
+                    "feedback-requests"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"channel\": \"sms\",\n  \"reviewerName\": \"analyst.hui\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Hand an ask to an Orange channel (Resolve AI does not contact the customer)\n\nAn unanswered ask older than 7 days becomes `no_response` and a follow-up is allowed."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"00000000-0000-4000-8000-000000000001\",\n    \"caseId\": \"00000000-0000-4000-8000-000000000002\",\n    \"customerId\": \"LR-08222\",\n    \"channel\": \"Orange voice call\",\n    \"channelId\": \"voice_call\",\n    \"question\": \"Call script: We noticed you are buying fewer data bundles. Can you tell us in your own words what changed?\",\n    \"status\": \"handed_off\",\n    \"triggerReason\": \"no_evidence\",\n    \"handedOffAt\": \"2026-11-09T18:29:16.586Z\",\n    \"handedOffBy\": \"analyst.hui\",\n    \"previousRequestsMarkedNoResponse\": 1,\n    \"note\": \"Handed off to the Orange channel. Resolve AI does not contact the customer.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Ingest a reply returned by the Orange channel (AI + keyword fallback)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feedback-requests/{{requestId}}/responses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feedback-requests",
+                "{{requestId}}",
+                "responses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Money hard this month. I buy only small small bundle now.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Ingest a reply returned by the Orange channel (AI + keyword fallback)\n\nCase → `ready` when confidence ≥ 0.80, otherwise `unclassified` (needs a human read). Rate limit: 20/min.\n\nAI-backed: 20 requests/minute."
+          },
+          "response": []
+        },
+        {
+          "name": "Inbound feedback (customer service, Facebook): classification preview only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"facebook_comment\",\n  \"text\": \"Orange network too slow in Ganta since last week, data no load.\",\n  \"region\": \"Ganta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Inbound feedback (customer service, Facebook): classification preview only\n\nAI-backed: 20 requests/minute."
+          },
+          "response": [
+            {
+              "name": "201 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/feedback",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "feedback"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"channel\": \"facebook_comment\",\n  \"text\": \"Orange network too slow in Ganta since last week, data no load.\",\n  \"region\": \"Ganta\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Inbound feedback (customer service, Facebook): classification preview only\n\nAI-backed: 20 requests/minute."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"00000000-0000-4000-8000-000000000003\",\n    \"channel\": \"Facebook page comment\",\n    \"channelId\": \"facebook_comment\",\n    \"customerId\": null,\n    \"caseId\": null,\n    \"region\": \"Ganta\",\n    \"preview\": {\n      \"reasonId\": \"network_quality\",\n      \"confidence\": 0.9,\n      \"sentiment\": \"negative\",\n      \"summary\": \"The customer reduced their data-bundle purchases due to slow network issues in Ganta.\",\n      \"classifiedBy\": \"llm:openai/gpt-4o-mini\"\n    },\n    \"note\": \"Inbound feedback is stored as context; it does not change the case reason.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Human confirms or corrects a reason",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reasons/{{classificationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reasons",
+                "{{classificationId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reasonId\": \"affordability\",\n  \"reviewerName\": \"analyst.hui\",\n  \"note\": \"Confirmed on a care call.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Human confirms or corrects a reason\n\nCorrecting adds a `human` reason that the queue, recommendation and report then use."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Recommend",
+      "description": "Step 3. Next-best action from the change and the reason (eligibility rules, campaign history).",
+      "item": [
+        {
+          "name": "Live next-best action (frontend recommendAction())",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/recommendation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}",
+                "recommendation"
+              ]
+            },
+            "description": "Live next-best action (frontend recommendAction())"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/customers/{{customerId}}/recommendation",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    "{{customerId}}",
+                    "recommendation"
+                  ]
+                },
+                "description": "Live next-best action (frontend recommendAction())"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"caseId\": \"00000000-0000-4000-8000-000000000010\",\n    \"customerId\": \"LR-20417\",\n    \"reason\": {\n      \"id\": \"affordability\",\n      \"label\": \"Affordability\",\n      \"icon\": \"wallet\",\n      \"confidence\": 0.862\n    },\n    \"recommended\": {\n      \"action\": {\n        \"id\": \"daily_mini_600\",\n        \"name\": \"Daily Mini 600 MB for $0.60\",\n        \"shortName\": \"Daily Mini 600 MB\",\n        \"price\": 0.6,\n        \"currency\": \"USD\",\n        \"sizeMb\": 600,\n        \"validityHours\": 24,\n        \"reasons\": [\n          \"affordability\"\n        ],\n        \"mismatchNote\": \"\",\n        \"channel\": \"Orange SMS\",\n        \"channelId\": \"sms\",\n        \"window\": \"Today 16:00–18:00\",\n        \"body\": \"Orange: Daily Mini 600 MB for $0.60, valid 24 hours. Reply YES to confirm. No change to your current plan. T&C apply.\",\n        \"eligibility\": [\n          {\n            \"code\": \"plan_active\",\n            \"label\": \"Plan is active\"\n          },\n          {\n            \"code\": \"no_discount_30d\",\n            \"label\": \"No discount offer used in the last 30 days\"\n          },\n          {\n            \"code\": \"regional_stock\",\n            \"label\": \"Daily Mini is available in this region\"\n          },\n          {\n            \"code\": \"confidence_gate\",\n            \"label\": \"Reason confidence is above the 80% review threshold\"\n          }\n        ]\n      },\n      \"predictedRecovery\": 0.62,\n      \"eligible\": true,\n      \"checks\": [\n        {\n          \"code\": \"plan_active\",\n          \"label\": \"Plan is active\",\n          \"passed\": true,\n          \"detail\": \"Line active, last seen 22 days ago.\"\n        },\n        {\n          \"code\": \"no_discount_30d\",\n          \"label\": \"No discount offer used in the last 30 days\",\n          \"passed\": true,\n          \"detail\": \"No offer sent to this customer in the last 30 days.\"\n        },\n        {\n          \"code\": \"regional_stock\",\n          \"label\": \"Daily Mini is available in this region\",\n          \"passed\": true,\n          \"detail\": \"Daily Mini 600 MB is stocked in Sinkor.\"\n        },\n        {\n          \"code\": \"confidence_gate\",\n          \"label\": \"Reason confidence is above the 80% review threshold\",\n          \"passed\": true,\n          \"detail\": \"Reason confidence 86% clears the 80% threshold.\"\n        }\n      ],\n      \"why\": \"Matches a affordability reply: daily mini 600 mb keeps the spend the customer is already making.\",\n      \"rejectedReason\": null\n    },\n    \"candidates\": [\n      {\n        \"action\": {\n          \"id\": \"daily_mini_600\",\n          \"name\": \"Daily Mini 600 MB for $0.60\",\n          \"shortName\": \"Daily Mini 600 MB\",\n          \"price\": 0.6,\n          \"currency\": \"USD\",\n          \"sizeMb\": 600,\n          \"validityHours\": 24,\n          \"reasons\": [\n            \"affordability\"\n          ],\n          \"mismatchNote\": \"\",\n          \"channel\": \"Orange SMS\",\n          \"channelId\": \"sms\",\n          \"window\": \"Today 16:00–18:00\",\n          \"body\": \"Orange: Daily Mini 600 MB for $0.60, valid 24 hours. Reply YES to confirm. No change to your current plan. T&C apply.\",\n          \"eligibility\": [\n            {\n              \"code\": \"plan_active\",\n              \"label\": \"Plan is active\"\n            },\n            {\n              \"code\": \"no_discount_30d\",\n              \"label\": \"No discount offer used in the last 30 days\"\n            },\n            {\n              \"code\": \"regional_stock\",\n              \"label\": \"Daily Mini is available in this region\"\n            },\n            {\n              \"code\": \"confidence_gate\",\n              \"label\": \"Reason confidence is above the 80% review threshold\"\n            }\n          ]\n        },\n        \"predictedRecovery\": 0.62,\n        \"eligible\": true,\n        \"checks\": [\n          {\n            \"code\": \"plan_active\",\n            \"label\": \"Plan is active\",\n            \"passed\": true,\n            \"detail\": \"Line active, last seen 22 days ago.\"\n          },\n          {\n            \"code\": \"no_discount_30d\",\n            \"label\": \"No discount offer used in the last 30 days\",\n            \"passed\": true,\n            \"detail\": \"No offer sent to this customer in the last 30 days.\"\n          },\n          {\n            \"code\": \"regional_stock\",\n            \"label\": \"Daily Mini is available in this region\",\n            \"passed\": true,\n            \"detail\": \"Daily Mini 600 MB is stocked in Sinkor.\"\n          },\n          {\n            \"code\": \"confidence_gate\",\n            \"label\": \"Reason confidence is above the 80% review threshold\",\n            \"passed\": true,\n            \"detail\": \"Reason confidence 86% clears the 80% threshold.\"\n          }\n        ],\n        \"why\": \"Matches a affordability reply: daily mini 600 mb keeps the spend the customer is already making.\",\n        \"rejectedReason\": null\n      },\n      {\n        \"action\": {\n          \"id\": \"monthly_mini_2g\",\n          \"name\": \"Monthly Mini 2 GB for $1.80\",\n          \"shortName\": \"Monthly Mini 2 GB\",\n          \"price\": 1.8,\n          \"currency\": \"USD\",\n          \"sizeMb\": 2048,\n          \"validityHours\": 720,\n          \"reasons\": [\n            \"affordability\"\n          ],\n          \"mismatchNote\": \"A larger bundle at a higher price than the customer is buying now.\",\n          \"channel\": \"Orange SMS\",\n          \"channelId\": \"sms\",\n          \"window\": \"Today 16:00–18:00\",\n          \"body\": \"Orange: Monthly Mini 2 GB for $1.80, valid 30 days. Reply YES to confirm. T&C apply.\",\n          \"eligibility\": [\n            {\n              \"code\": \"plan_active\",\n              \"label\": \"Plan is active\"\n            },\n            {\n              \"code\": \"no_discount_30d\",\n              \"label\": \"No discount offer used in the last 30 days\"\n            },\n            {\n              \"code\": \"affordability_cap\",\n              \"label\": \"Offer stays under the $2.00 pilot price cap\"\n            }\n          ]\n        },\n        \"predictedRecovery\": 0.41,\n        \"eligible\": true,\n        \"checks\": [\n          {\n            \"code\": \"plan_active\",\n            \"label\": \"Plan is active\",\n            \"passed\": true,\n            \"detail\": \"Line active, last seen 22 days ago.\"\n          },\n          {\n            \"code\": \"no_discount_30d\",\n            \"label\": \"No discount offer used in the last 30 days\",\n            \"passed\": true,\n            \"detail\": \"No offer sent to this customer in the last 30 days.\"\n          },\n          {\n            \"code\": \"affordability_cap\",\n            \"label\": \"Offer stays under the $2.00 pilot price cap\",\n            \"passed\": true,\n            \"detail\": \"$1.80 is under the $2.00 pilot price cap.\"\n          }\n        ],\n        \"why\": \"Matches a affordability reply: monthly mini 2 gb keeps the spend the customer is already making.\",\n        \"rejectedReason\": null\n      }\n    ],\n    \"notRecommended\": [\n      {\n        \"action\": {\n          \"id\": \"care_bridge\",\n          \"name\": \"Call-centre bridge to the network team\",\n          \"shortName\": \"Call-centre bridge\",\n          \"price\": 0,\n          \"currency\": \"USD\",\n          \"sizeMb\": 0,\n          \"validityHours\": 0,\n          \"reasons\": [\n            \"network_quality\"\n          ],\n          \"mismatchNote\": \"No network fault was reported for this customer in the last 30 days.\",\n          \"channel\": \"Call centre\",\n          \"channelId\": \"customer_service\",\n          \"window\": \"Next care shift 09:00–11:00\",\n          \"body\": \"Ticket raised for the network operations team. No customer message sent.\",\n          \"eligibility\": [\n            {\n              \"code\": \"fault_reported\",\n              \"label\": \"A network fault was reported or detected\"\n            },\n            {\n              \"code\": \"plan_active\",\n              \"label\": \"Plan is active\"\n            }\n          ]\n        },\n        \"predictedRecovery\": 0.2,\n        \"eligible\": false,\n        \"checks\": [\n          {\n            \"code\": \"fault_reported\",\n            \"label\": \"A network fault was reported or detected\",\n            \"passed\": false,\n            \"detail\": \"No network fault reported for this customer.\"\n          },\n          {\n            \"code\": \"plan_active\",\n            \"label\": \"Plan is active\",\n            \"passed\": true,\n            \"detail\": \"Line active, last seen 22 days ago.\"\n          }\n        ],\n        \"why\": \"No network fault was reported for this customer in the last 30 days.\",\n        \"rejectedReason\": \"No network fault was reported for this customer in the last 30 days.\"\n      },\n      {\n        \"action\": {\n          \"id\": \"ussd_guide\",\n          \"name\": \"USSD navigation guide with a direct activation code\",\n          \"shortName\": \"USSD guide\",\n          \"price\": 0,\n          \"currency\": \"USD\",\n          \"sizeMb\": 0,\n          \"validityHours\": 0,\n          \"reasons\": [\n            \"activation_difficulty\"\n          ],\n          \"mismatchNote\": \"The customer already activates bundles without support.\",\n          \"channel\": \"Orange SMS\",\n          \"channelId\": \"sms\",\n          \"window\": \"Today 16:00–18:00\",\n          \"body\": \"Orange: To buy the bundle you used before, dial *144*2*3*1# or reply HELP.\",\n          \"eligibility\": [\n            {\n              \"code\": \"prior_activation\",\n              \"label\": \"Customer activated this bundle before\"\n            },\n            {\n              \"code\": \"plan_active\",\n              \"label\": \"Plan is active\"\n            }\n          ]\n        },\n        \"predictedRecovery\": 0.2,\n        \"eligible\": false,\n        \"checks\": [\n          {\n            \"code\": \"prior_activation\",\n            \"label\": \"Customer activated this bundle before\",\n            \"passed\": true,\n            \"detail\": \"Customer has activated this bundle before.\"\n          },\n          {\n            \"code\": \"plan_active\",\n            \"label\": \"Plan is active\",\n            \"passed\": true,\n            \"detail\": \"Line active, last seen 22 days ago.\"\n          }\n        ],\n        \"why\": \"The customer already activates bundles without support.\",\n        \"rejectedReason\": \"The customer already activates bundles without support.\"\n      },\n      {\n        \"action\": {\n          \"id\": \"competitor_match\",\n          \"name\": \"Price-match offer against the other network\",\n          \"shortName\": \"Price-match offer\",\n          \"price\": 0.55,\n          \"currency\": \"USD\",\n          \"sizeMb\": 600,\n          \"validityHours\": 24,\n          \"reasons\": [\n            \"competitor\"\n          ],\n          \"mismatchNote\": \"Needs a pricing approval outside the pilot, and cuts margin for a reseller who sets their own price.\",\n          \"channel\": \"Orange SMS\",\n          \"channelId\": \"sms\",\n          \"window\": \"Today 16:00–18:00\",\n          \"body\": \"Orange: We can match your usual bundle price for 30 days. Reply YES to confirm.\",\n          \"eligibility\": [\n            {\n              \"code\": \"pricing_approval\",\n              \"label\": \"Requires a pricing approval outside the pilot\"\n            },\n            {\n              \"code\": \"plan_active\",\n              \"label\": \"Plan is active\"\n            }\n          ]\n        },\n        \"predictedRecovery\": 0.35,\n        \"eligible\": false,\n        \"checks\": [\n          {\n            \"code\": \"pricing_approval\",\n            \"label\": \"Requires a pricing approval outside the pilot\",\n            \"passed\": false,\n            \"detail\": \"Requires a pricing approval outside the pilot scope.\"\n          },\n          {\n            \"code\": \"plan_active\",\n            \"label\": \"Plan is active\",\n            \"passed\": true,\n            \"detail\": \"Line active, last seen 22 days ago.\"\n          }\n        ],\n        \"why\": \"Needs a pricing approval outside the pilot, and cuts margin for a reseller who sets their own price.\",\n        \"rejectedReason\": \"Needs a pricing approval outside the pilot, and cuts margin for a reseller who sets their own price.\"\n      },\n      {\n        \"action\": {\n          \"id\": \"reduced_need_checkin\",\n          \"name\": \"Reduced-need check-in call\",\n          \"shortName\": \"Check-in call\",\n          \"price\": 0,\n          \"currency\": \"USD\",\n          \"sizeMb\": 0,\n          \"validityHours\": 0,\n          \"reasons\": [\n            \"reduced_need\"\n          ],\n          \"mismatchNote\": \"The reply describes cost, not a seasonal change in need.\",\n          \"channel\": \"Call centre\",\n          \"channelId\": \"customer_service\",\n          \"window\": \"Next care shift 09:00–11:00\",\n          \"body\": \"Care agent confirms the change is seasonal and closes the case without an offer.\",\n          \"eligibility\": [\n            {\n              \"code\": \"consent_call\",\n              \"label\": \"Customer consented to a care call\"\n            },\n            {\n              \"code\": \"plan_active\",\n              \"label\": \"Plan is active\"\n            }\n          ]\n        },\n        \"predictedRecovery\": 0.2,\n        \"eligible\": false,\n        \"checks\": [\n          {\n            \"code\": \"consent_call\",\n            \"label\": \"Customer consented to a care call\",\n            \"passed\": true,\n            \"detail\": \"Customer has spoken to care and agreed to a call back.\"\n          },\n          {\n            \"code\": \"plan_active\",\n            \"label\": \"Plan is active\",\n            \"passed\": true,\n            \"detail\": \"Line active, last seen 22 days ago.\"\n          }\n        ],\n        \"why\": \"The reply describes cost, not a seasonal change in need.\",\n        \"rejectedReason\": \"The reply describes cost, not a seasonal change in need.\"\n      }\n    ],\n    \"history\": [\n      {\n        \"reason\": \"Affordability\",\n        \"action\": \"Daily Mini 600 MB for $0.60\",\n        \"outcome\": \"62% recovered (n=214, synthetic)\"\n      },\n      {\n        \"reason\": \"Affordability\",\n        \"action\": \"Monthly Mini 2 GB for $1.80\",\n        \"outcome\": \"41% recovered (n=168, synthetic)\"\n      },\n      {\n        \"reason\": \"Affordability\",\n        \"action\": \"Price-match offer against the other network\",\n        \"outcome\": \"35% recovered (n=52, synthetic)\"\n      },\n      {\n        \"reason\": \"Network quality\",\n        \"action\": \"Call-centre bridge to the network team\",\n        \"outcome\": \"44% recovered (n=96, synthetic)\"\n      },\n      {\n        \"reason\": \"Activation difficulty\",\n        \"action\": \"USSD navigation guide with a direct activation code\",\n        \"outcome\": \"52% recovered (n=131, synthetic)\"\n      },\n      {\n        \"reason\": \"Reduced need\",\n        \"action\": \"Reduced-need check-in call\",\n        \"outcome\": \"28% recovered (n=74, synthetic)\"\n      },\n      {\n        \"reason\": \"Competitor\",\n        \"action\": \"Price-match offer against the other network\",\n        \"outcome\": \"30% recovered (n=61, synthetic)\"\n      },\n      {\n        \"reason\": \"Unknown\",\n        \"action\": \"Reduced-need check-in call\",\n        \"outcome\": \"22% recovered (n=40, synthetic)\"\n      }\n    ],\n    \"current\": null\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Persist the best action as a pending recommendation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}",
+                "recommendations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Persist the best action as a pending recommendation"
+          },
+          "response": []
+        },
+        {
+          "name": "Recommendations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recommendations?pageSize=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recommendations"
+              ],
+              "query": [
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Recommendations"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/recommendations?pageSize=5",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "recommendations"
+                  ],
+                  "query": [
+                    {
+                      "key": "pageSize",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Recommendations"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000019\",\n      \"caseId\": \"00000000-0000-4000-8000-000000000020\",\n      \"customerId\": \"LR-20082\",\n      \"action\": {\n        \"id\": \"daily_mini_600\",\n        \"name\": \"Daily Mini 600 MB for $0.60\",\n        \"shortName\": \"Daily Mini 600 MB\"\n      },\n      \"predictedRecovery\": 0.2,\n      \"rationale\": \"Historical pilot record (synthetic): approved during the September 2026 pilot.\",\n      \"objective\": \"Keep the customer buying at a price they can afford now\",\n      \"eligibilityChecks\": [],\n      \"alternatives\": [],\n      \"status\": \"approved\",\n      \"decidedBy\": \"analyst.hui\",\n      \"decidedAt\": \"2026-10-02T06:00:00.000Z\",\n      \"decisionNote\": \"Approved during the September 2026 pilot (synthetic).\",\n      \"createdAt\": \"2026-10-02T05:00:00.000Z\",\n      \"intervention\": {\n        \"id\": \"00000000-0000-4000-8000-000000000021\",\n        \"reference\": \"INT-4105\",\n        \"recommendationId\": \"00000000-0000-4000-8000-000000000019\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000022\",\n      \"caseId\": \"00000000-0000-4000-8000-000000000023\",\n      \"customerId\": \"LR-27384\",\n      \"action\": {\n        \"id\": \"daily_mini_600\",\n        \"name\": \"Daily Mini 600 MB for $0.60\",\n        \"shortName\": \"Daily Mini 600 MB\"\n      },\n      \"predictedRecovery\": 0.2,\n      \"rationale\": \"Historical pilot record (synthetic): approved during the September 2026 pilot.\",\n      \"objective\": \"Keep the customer buying at a price they can afford now\",\n      \"eligibilityChecks\": [],\n      \"alternatives\": [],\n      \"status\": \"approved\",\n      \"decidedBy\": \"analyst.hui\",\n      \"decidedAt\": \"2026-09-30T06:00:00.000Z\",\n      \"decisionNote\": \"Approved during the September 2026 pilot (synthetic).\",\n      \"createdAt\": \"2026-09-30T05:00:00.000Z\",\n      \"intervention\": {\n        \"id\": \"00000000-0000-4000-8000-000000000024\",\n        \"reference\": \"INT-4104\",\n        \"recommendationId\": \"00000000-0000-4000-8000-000000000022\"\n      }\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 2,\n    \"total\": 6\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "One recommendation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recommendations/{{recommendationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recommendations",
+                "{{recommendationId}}"
+              ]
+            },
+            "description": "One recommendation"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/recommendations/{{recommendationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "recommendations",
+                    "{{recommendationId}}"
+                  ]
+                },
+                "description": "One recommendation"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"00000000-0000-4000-8000-000000000019\",\n    \"caseId\": \"00000000-0000-4000-8000-000000000020\",\n    \"customerId\": \"LR-20082\",\n    \"action\": {\n      \"id\": \"daily_mini_600\",\n      \"name\": \"Daily Mini 600 MB for $0.60\",\n      \"shortName\": \"Daily Mini 600 MB\"\n    },\n    \"predictedRecovery\": 0.2,\n    \"rationale\": \"Historical pilot record (synthetic): approved during the September 2026 pilot.\",\n    \"objective\": \"Keep the customer buying at a price they can afford now\",\n    \"eligibilityChecks\": [],\n    \"alternatives\": [],\n    \"status\": \"approved\",\n    \"decidedBy\": \"analyst.hui\",\n    \"decidedAt\": \"2026-10-02T06:00:00.000Z\",\n    \"decisionNote\": \"Approved during the September 2026 pilot (synthetic).\",\n    \"createdAt\": \"2026-10-02T05:00:00.000Z\",\n    \"intervention\": {\n      \"id\": \"00000000-0000-4000-8000-000000000021\",\n      \"reference\": \"INT-4105\",\n      \"recommendationId\": \"00000000-0000-4000-8000-000000000019\"\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Act",
+      "description": "Step 4. A human approves, changes or rejects. Approval creates an intervention handed off to Orange's workflow.",
+      "item": [
+        {
+          "name": "Approve (or change to an eligible alternative) → intervention handed off",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/actions/{{recommendationId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actions",
+                "{{recommendationId}}",
+                "approve"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerName\": \"analyst.hui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Approve (or change to an eligible alternative) → intervention handed off"
+          },
+          "response": [
+            {
+              "name": "201 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/actions/{{recommendationId}}/approve",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "actions",
+                    "{{recommendationId}}",
+                    "approve"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewerName\": \"analyst.hui\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Approve (or change to an eligible alternative) → intervention handed off"
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"decision\": \"approved\",\n    \"intervention\": {\n      \"id\": \"00000000-0000-4000-8000-000000000004\",\n      \"reference\": \"INT-4106\",\n      \"recommendationId\": \"00000000-0000-4000-8000-000000000005\",\n      \"caseId\": \"00000000-0000-4000-8000-000000000002\",\n      \"customerId\": \"LR-08222\",\n      \"action\": {\n        \"id\": \"daily_mini_600\",\n        \"name\": \"Daily Mini 600 MB for $0.60\",\n        \"shortName\": \"Daily Mini 600 MB\"\n      },\n      \"recommendedActionId\": \"daily_mini_600\",\n      \"decision\": \"approved\",\n      \"channel\": \"Orange SMS\",\n      \"channelId\": \"sms\",\n      \"deliveryWindow\": \"Today 16:00–18:00\",\n      \"approvedBy\": \"analyst.hui\",\n      \"approvedAt\": \"2026-11-09T18:29:22.235Z\",\n      \"status\": \"handed_off\",\n      \"handedOffAt\": \"2026-11-09T18:29:22.235Z\",\n      \"deliveredAt\": null,\n      \"clickRecorded\": false,\n      \"note\": \"Customer says the big bundle is too dear.\",\n      \"simulatedThrough\": null,\n      \"hasOutcome\": false\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Persist a recommendation to reject (LR-19076)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "if (pm.response.code === 201) pm.collectionVariables.set('rejectRecommendationId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/LR-19076/recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "LR-19076",
+                "recommendations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Setup for the reject example below."
+          }
+        },
+        {
+          "name": "\"Send to human review\": reject a pending recommendation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 or 409', () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/actions/{{rejectRecommendationId}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actions",
+                "{{rejectRecommendationId}}",
+                "reject"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerName\": \"analyst.hui\",\n  \"note\": \"Prior discount was recent; check manually.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "\"Send to human review\": reject a pending recommendation"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/actions/{{rejectRecommendationId}}/reject",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "actions",
+                    "{{rejectRecommendationId}}",
+                    "reject"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewerName\": \"analyst.hui\",\n  \"note\": \"Prior discount was recent; check manually.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "\"Send to human review\": reject a pending recommendation"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"recommendationId\": \"00000000-0000-4000-8000-000000000006\",\n    \"status\": \"rejected\",\n    \"caseStatus\": \"unclassified\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Interventions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/interventions?pageSize=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interventions"
+              ],
+              "query": [
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Interventions"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/interventions?pageSize=5",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "interventions"
+                  ],
+                  "query": [
+                    {
+                      "key": "pageSize",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Interventions"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000021\",\n      \"reference\": \"INT-4105\",\n      \"recommendationId\": \"00000000-0000-4000-8000-000000000019\",\n      \"caseId\": \"00000000-0000-4000-8000-000000000020\",\n      \"customerId\": \"LR-20082\",\n      \"action\": {\n        \"id\": \"daily_mini_600\",\n        \"name\": \"Daily Mini 600 MB for $0.60\",\n        \"shortName\": \"Daily Mini 600 MB\"\n      },\n      \"recommendedActionId\": \"daily_mini_600\",\n      \"decision\": \"approved\",\n      \"channel\": \"Orange SMS\",\n      \"channelId\": \"sms\",\n      \"deliveryWindow\": null,\n      \"approvedBy\": \"analyst.hui\",\n      \"approvedAt\": \"2026-10-02T06:00:00.000Z\",\n      \"status\": \"delivered\",\n      \"handedOffAt\": \"2026-10-02T08:00:00.000Z\",\n      \"deliveredAt\": \"2026-10-02T08:00:00.000Z\",\n      \"clickRecorded\": false,\n      \"note\": null,\n      \"simulatedThrough\": null,\n      \"hasOutcome\": true\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000024\",\n      \"reference\": \"INT-4104\",\n      \"recommendationId\": \"00000000-0000-4000-8000-000000000022\",\n      \"caseId\": \"00000000-0000-4000-8000-000000000023\",\n      \"customerId\": \"LR-27384\",\n      \"action\": {\n        \"id\": \"daily_mini_600\",\n        \"name\": \"Daily Mini 600 MB for $0.60\",\n        \"shortName\": \"Daily Mini 600 MB\"\n      },\n      \"recommendedActionId\": \"daily_mini_600\",\n      \"decision\": \"approved\",\n      \"channel\": \"Orange SMS\",\n      \"channelId\": \"sms\",\n      \"deliveryWindow\": null,\n      \"approvedBy\": \"analyst.hui\",\n      \"approvedAt\": \"2026-09-30T06:00:00.000Z\",\n      \"status\": \"delivered\",\n      \"handedOffAt\": \"2026-09-30T08:00:00.000Z\",\n      \"deliveredAt\": \"2026-09-30T08:00:00.000Z\",\n      \"clickRecorded\": false,\n      \"note\": null,\n      \"simulatedThrough\": null,\n      \"hasOutcome\": true\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 2,\n    \"total\": 6\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "One intervention (uuid or INT-1234)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/interventions/{{interventionRef}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interventions",
+                "{{interventionRef}}"
+              ]
+            },
+            "description": "One intervention (uuid or INT-1234)"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/interventions/{{interventionRef}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "interventions",
+                    "{{interventionRef}}"
+                  ]
+                },
+                "description": "One intervention (uuid or INT-1234)"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"00000000-0000-4000-8000-000000000025\",\n    \"reference\": \"INT-4100\",\n    \"recommendationId\": \"00000000-0000-4000-8000-000000000026\",\n    \"caseId\": \"00000000-0000-4000-8000-000000000027\",\n    \"customerId\": \"LR-10168\",\n    \"action\": {\n      \"id\": \"care_bridge\",\n      \"name\": \"Call-centre bridge to the network team\",\n      \"shortName\": \"Call-centre bridge\"\n    },\n    \"recommendedActionId\": \"care_bridge\",\n    \"decision\": \"approved\",\n    \"channel\": \"Call centre\",\n    \"channelId\": \"customer_service\",\n    \"deliveryWindow\": null,\n    \"approvedBy\": \"analyst.hui\",\n    \"approvedAt\": \"2026-09-22T06:00:00.000Z\",\n    \"status\": \"delivered\",\n    \"handedOffAt\": \"2026-09-22T08:00:00.000Z\",\n    \"deliveredAt\": \"2026-09-22T08:00:00.000Z\",\n    \"clickRecorded\": true,\n    \"note\": null,\n    \"simulatedThrough\": null,\n    \"hasOutcome\": true\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Measure",
+      "description": "Step 5. Outcome after the 30-day window, against the customer's own baseline.",
+      "item": [
+        {
+          "name": "Measure the outcome after the 30-day window",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interventions/{{interventionRef}}/outcome",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interventions",
+                "{{interventionRef}}",
+                "outcome"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerName\": \"analyst.hui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Measure the outcome after the 30-day window\n\n409 while the window is open (unless simulated) or when an outcome already exists."
+          },
+          "response": [
+            {
+              "name": "201 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/interventions/{{interventionRef}}/outcome",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "interventions",
+                    "{{interventionRef}}",
+                    "outcome"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewerName\": \"analyst.hui\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Measure the outcome after the 30-day window\n\n409 while the window is open (unless simulated) or when an outcome already exists."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"00000000-0000-4000-8000-000000000007\",\n    \"interventionId\": \"INT-4106\",\n    \"customerId\": \"LR-08222\",\n    \"windowDays\": 30,\n    \"baselineActivations\": 11,\n    \"activationsAfter\": 10,\n    \"changePct\": -9,\n    \"shareOfDropRecovered\": 0.667,\n    \"outcomeType\": \"re_engaged\",\n    \"recovered\": true,\n    \"simulated\": true,\n    \"note\": \"Usage returned toward the customer's own baseline. (recorded by analyst.hui)\",\n    \"measuredAt\": \"2026-12-09T18:29:22.235Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Timeline, verdict and control summary (frontend measureView())",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/LR-10168/measure",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "LR-10168",
+                "measure"
+              ]
+            },
+            "description": "Timeline, verdict and control summary (frontend measureView())"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/customers/LR-10168/measure",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    "LR-10168",
+                    "measure"
+                  ]
+                },
+                "description": "Timeline, verdict and control summary (frontend measureView())"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"caseId\": \"00000000-0000-4000-8000-000000000027\",\n    \"customerId\": \"LR-10168\",\n    \"events\": [\n      {\n        \"label\": \"Case flagged by detection\",\n        \"detail\": \"Android top-up, 11 days inactive\",\n        \"at\": \"2026-09-14T08:00:00.000Z\",\n        \"system\": \"Behaviour analytics\"\n      },\n      {\n        \"label\": \"Ask sent to the customer\",\n        \"detail\": \"Orange SMS free-text question\",\n        \"at\": \"2026-09-15T08:00:00.000Z\",\n        \"system\": \"Orange SMS\"\n      },\n      {\n        \"label\": \"Customer reply received\",\n        \"detail\": \"\\\"Network slow inside my area. Data no load some days.\\\"\",\n        \"at\": \"2026-09-16T14:00:00.000Z\",\n        \"system\": \"SMS inbox\"\n      },\n      {\n        \"label\": \"Reply classified\",\n        \"detail\": \"Network quality — confirmed by a human\",\n        \"at\": \"2026-09-18T06:00:00.000Z\",\n        \"system\": \"analyst.hui\"\n      },\n      {\n        \"label\": \"Next-best-action drafted\",\n        \"detail\": \"Call-centre bridge to the network team\",\n        \"at\": \"2026-09-22T05:00:00.000Z\",\n        \"system\": \"Next-best-action\"\n      },\n      {\n        \"label\": \"Action approved by a human\",\n        \"detail\": \"Signed off by analyst.hui\",\n        \"at\": \"2026-09-22T06:00:00.000Z\",\n        \"system\": \"Retention analyst\"\n      },\n      {\n        \"label\": \"Intervention delivered\",\n        \"detail\": \"Call centre\",\n        \"at\": \"2026-09-22T08:00:00.000Z\",\n        \"system\": \"Call centre\"\n      },\n      {\n        \"label\": \"Offer link recorded\",\n        \"detail\": \"Customer opened the offer\",\n        \"at\": \"2026-09-22T08:00:00.000Z\",\n        \"system\": \"Campaign tracking\"\n      },\n      {\n        \"label\": \"Outcome recorded (not recovered)\",\n        \"detail\": \"30-day window\",\n        \"at\": \"2026-10-22T08:00:00.000Z\",\n        \"system\": \"Evaluation\"\n      }\n    ],\n    \"outcome\": {\n      \"interventionId\": \"INT-4100\",\n      \"customerId\": \"LR-10168\",\n      \"windowDays\": 30,\n      \"measuredAt\": \"2026-10-22T08:00:00.000Z\",\n      \"activationsAfter\": 3,\n      \"baselineActivations\": 9,\n      \"recovered\": false,\n      \"outcomeType\": \"declined_further\",\n      \"changePct\": -67,\n      \"simulated\": true,\n      \"note\": \"Usage stayed near the flagged level through the 30-day window.\"\n    },\n    \"intervention\": {\n      \"id\": \"INT-4100\",\n      \"customerId\": \"LR-10168\",\n      \"actionId\": \"care_bridge\",\n      \"channel\": \"Call centre\",\n      \"channelId\": \"customer_service\",\n      \"draftedAt\": \"2026-09-22T05:00:00.000Z\",\n      \"approvedBy\": \"analyst.hui\",\n      \"approvedAt\": \"2026-09-22T06:00:00.000Z\",\n      \"sentAt\": \"2026-09-22T08:00:00.000Z\",\n      \"delivered\": true,\n      \"status\": \"delivered\",\n      \"clickRecorded\": true,\n      \"deliveryWindow\": null\n    },\n    \"action\": {\n      \"id\": \"care_bridge\",\n      \"name\": \"Call-centre bridge to the network team\",\n      \"shortName\": \"Call-centre bridge\",\n      \"price\": 0,\n      \"currency\": \"USD\",\n      \"sizeMb\": 0,\n      \"validityHours\": 0,\n      \"reasons\": [\n        \"network_quality\"\n      ],\n      \"mismatchNote\": \"No network fault was reported for this customer in the last 30 days.\",\n      \"channel\": \"Call centre\",\n      \"channelId\": \"customer_service\",\n      \"window\": \"Next care shift 09:00–11:00\",\n      \"body\": \"Ticket raised for the network operations team. No customer message sent.\",\n      \"eligibility\": [\n        {\n          \"code\": \"fault_reported\",\n          \"label\": \"A network fault was reported or detected\"\n        },\n        {\n          \"code\": \"plan_active\",\n          \"label\": \"Plan is active\"\n        }\n      ]\n    },\n    \"verdict\": \"not_recovered\",\n    \"activationsAfter\": 3,\n    \"vsBaselinePct\": -67,\n    \"controlSummary\": {\n      \"recovered\": 2,\n      \"total\": 8,\n      \"rate\": 0.25\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Report",
+      "description": "Step 6. Treated vs control, reasons, coverage, action funnel, trends.",
+      "item": [
+        {
+          "name": "Treated vs control (Wilson 95% CI), reasons, agreement (frontend reportView())",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "summary"
+              ]
+            },
+            "description": "Treated vs control (Wilson 95% CI), reasons, agreement (frontend reportView())"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/reports/summary",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "reports",
+                    "summary"
+                  ]
+                },
+                "description": "Treated vs control (Wilson 95% CI), reasons, agreement (frontend reportView())"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"flagged\": 45,\n    \"windowDays\": 21,\n    \"churned\": 3,\n    \"churnPct\": 6.7,\n    \"approvalsThisWeek\": 2,\n    \"approvalsTotal\": 6,\n    \"marginImpactPct\": 0,\n    \"awaitingReply\": 22,\n    \"classified\": 23,\n    \"reasons\": [\n      {\n        \"label\": \"Network quality\",\n        \"count\": 10,\n        \"pct\": 43\n      },\n      {\n        \"label\": \"Affordability\",\n        \"count\": 7,\n        \"pct\": 30\n      },\n      {\n        \"label\": \"Reduced need\",\n        \"count\": 4,\n        \"pct\": 17\n      },\n      {\n        \"label\": \"Activation difficulty\",\n        \"count\": 1,\n        \"pct\": 4\n      },\n      {\n        \"label\": \"Competitor\",\n        \"count\": 1,\n        \"pct\": 4\n      }\n    ],\n    \"treated\": {\n      \"recovered\": 2,\n      \"n\": 6,\n      \"rate\": 0.333,\n      \"ci\": {\n        \"low\": 0.097,\n        \"high\": 0.7\n      }\n    },\n    \"control\": {\n      \"recovered\": 2,\n      \"n\": 8,\n      \"rate\": 0.25,\n      \"ci\": {\n        \"low\": 0.071,\n        \"high\": 0.591\n      }\n    },\n    \"differencePoints\": 8,\n    \"intervalsOverlap\": true,\n    \"agreement\": {\n      \"agreed\": 3,\n      \"reviewed\": 3,\n      \"pct\": 100,\n      \"rows\": [\n        {\n          \"customerId\": \"LR-20417\",\n          \"verbatim\": \"Money hard this month. Buy small weekly.\",\n          \"aiReason\": \"affordability\",\n          \"aiConfidence\": 0.862,\n          \"analystReason\": \"affordability\",\n          \"agreed\": true,\n          \"reviewedAt\": \"2026-10-24T08:00:00.000Z\"\n        },\n        {\n          \"customerId\": \"LR-19076\",\n          \"verbatim\": \"Money hard this month. Buy small weekly.\",\n          \"aiReason\": \"affordability\",\n          \"aiConfidence\": 0.862,\n          \"analystReason\": \"affordability\",\n          \"agreed\": true,\n          \"reviewedAt\": \"2026-10-25T08:00:00.000Z\"\n        },\n        {\n          \"customerId\": \"LR-21148\",\n          \"verbatim\": \"Network slow inside my area. Data no load some days.\",\n          \"aiReason\": \"network_quality\",\n          \"aiConfidence\": 0.795,\n          \"analystReason\": \"network_quality\",\n          \"agreed\": true,\n          \"reviewedAt\": \"2026-10-26T08:00:00.000Z\"\n        }\n      ]\n    },\n    \"history\": [\n      {\n        \"reason\": \"Affordability\",\n        \"action\": \"Daily Mini 600 MB for $0.60\",\n        \"outcome\": \"62% (n=214)\"\n      },\n      {\n        \"reason\": \"Affordability\",\n        \"action\": \"Monthly Mini 2 GB for $1.80\",\n        \"outcome\": \"41% (n=168)\"\n      },\n      {\n        \"reason\": \"Affordability\",\n        \"action\": \"Price-match offer against the other network\",\n        \"outcome\": \"35% (n=52)\"\n      },\n      {\n        \"reason\": \"Network quality\",\n        \"action\": \"Call-centre bridge to the network team\",\n        \"outcome\": \"44% (n=96)\"\n      },\n      {\n        \"reason\": \"Activation difficulty\",\n        \"action\": \"USSD navigation guide with a direct activation code\",\n        \"outcome\": \"52% (n=131)\"\n      },\n      {\n        \"reason\": \"Reduced need\",\n        \"action\": \"Reduced-need check-in call\",\n        \"outcome\": \"28% (n=74)\"\n      },\n      {\n        \"reason\": \"Competitor\",\n        \"action\": \"Price-match offer against the other network\",\n        \"outcome\": \"30% (n=61)\"\n      },\n      {\n        \"reason\": \"Unknown\",\n        \"action\": \"Reduced-need check-in call\",\n        \"outcome\": \"22% (n=40)\"\n      }\n    ],\n    \"simulated\": true\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reasons by source and feedback coverage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/drivers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "drivers"
+              ]
+            },
+            "description": "Reasons by source and feedback coverage"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/reports/drivers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "reports",
+                    "drivers"
+                  ]
+                },
+                "description": "Reasons by source and feedback coverage"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"reasons\": [\n      {\n        \"id\": \"affordability\",\n        \"label\": \"Affordability\",\n        \"count\": 7,\n        \"pct\": 30,\n        \"bySource\": {\n          \"feedback\": 7,\n          \"evidence\": 0,\n          \"human\": 0\n        }\n      },\n      {\n        \"id\": \"reduced_need\",\n        \"label\": \"Reduced need\",\n        \"count\": 4,\n        \"pct\": 17,\n        \"bySource\": {\n          \"feedback\": 4,\n          \"evidence\": 0,\n          \"human\": 0\n        }\n      },\n      {\n        \"id\": \"competitor\",\n        \"label\": \"Competitor\",\n        \"count\": 1,\n        \"pct\": 4,\n        \"bySource\": {\n          \"feedback\": 1,\n          \"evidence\": 0,\n          \"human\": 0\n        }\n      },\n      {\n        \"id\": \"network_quality\",\n        \"label\": \"Network quality\",\n        \"count\": 10,\n        \"pct\": 43,\n        \"bySource\": {\n          \"feedback\": 10,\n          \"evidence\": 0,\n          \"human\": 0\n        }\n      },\n      {\n        \"id\": \"activation_difficulty\",\n        \"label\": \"Activation difficulty\",\n        \"count\": 1,\n        \"pct\": 4,\n        \"bySource\": {\n          \"feedback\": 1,\n          \"evidence\": 0,\n          \"human\": 0\n        }\n      },\n      {\n        \"id\": \"unknown\",\n        \"label\": \"Unknown\",\n        \"count\": 0,\n        \"pct\": 0,\n        \"bySource\": {\n          \"feedback\": 0,\n          \"evidence\": 0,\n          \"human\": 0\n        }\n      }\n    ],\n    \"coverage\": {\n      \"openCases\": 45,\n      \"classified\": 23,\n      \"unknown\": 0,\n      \"needsReview\": 9,\n      \"asked\": 45,\n      \"answered\": 23,\n      \"unanswered\": 22,\n      \"noReasonYet\": 22\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Action funnel and campaign history",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/actions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "actions"
+              ]
+            },
+            "description": "Action funnel and campaign history"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/reports/actions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "reports",
+                    "actions"
+                  ]
+                },
+                "description": "Action funnel and campaign history"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"actions\": [\n      {\n        \"id\": \"daily_mini_600\",\n        \"name\": \"Daily Mini 600 MB for $0.60\",\n        \"recommended\": 5,\n        \"approved\": 5,\n        \"changedTo\": 0,\n        \"rejected\": 0,\n        \"delivered\": 4,\n        \"measured\": 5,\n        \"recovered\": 2\n      },\n      {\n        \"id\": \"monthly_mini_2g\",\n        \"name\": \"Monthly Mini 2 GB for $1.80\",\n        \"recommended\": 0,\n        \"approved\": 0,\n        \"changedTo\": 0,\n        \"rejected\": 0,\n        \"delivered\": 0,\n        \"measured\": 0,\n        \"recovered\": 0\n      },\n      {\n        \"id\": \"care_bridge\",\n        \"name\": \"Call-centre bridge to the network team\",\n        \"recommended\": 1,\n        \"approved\": 1,\n        \"changedTo\": 0,\n        \"rejected\": 0,\n        \"delivered\": 1,\n        \"measured\": 1,\n        \"recovered\": 0\n      },\n      {\n        \"id\": \"ussd_guide\",\n        \"name\": \"USSD navigation guide with a direct activation code\",\n        \"recommended\": 0,\n        \"approved\": 0,\n        \"changedTo\": 0,\n        \"rejected\": 0,\n        \"delivered\": 0,\n        \"measured\": 0,\n        \"recovered\": 0\n      },\n      {\n        \"id\": \"competitor_match\",\n        \"name\": \"Price-match offer against the other network\",\n        \"recommended\": 0,\n        \"approved\": 0,\n        \"changedTo\": 0,\n        \"rejected\": 0,\n        \"delivered\": 0,\n        \"measured\": 0,\n        \"recovered\": 0\n      },\n      {\n        \"id\": \"reduced_need_checkin\",\n        \"name\": \"Reduced-need check-in call\",\n        \"recommended\": 0,\n        \"approved\": 0,\n        \"changedTo\": 0,\n        \"rejected\": 0,\n        \"delivered\": 0,\n        \"measured\": 0,\n        \"recovered\": 0\n      }\n    ],\n    \"campaignHistory\": [\n      {\n        \"reasonId\": \"affordability\",\n        \"actionId\": \"daily_mini_600\",\n        \"action\": \"Daily Mini 600 MB for $0.60\",\n        \"recoveryRate\": 0.62,\n        \"n\": 214,\n        \"simulated\": true\n      },\n      {\n        \"reasonId\": \"affordability\",\n        \"actionId\": \"monthly_mini_2g\",\n        \"action\": \"Monthly Mini 2 GB for $1.80\",\n        \"recoveryRate\": 0.41,\n        \"n\": 168,\n        \"simulated\": true\n      },\n      {\n        \"reasonId\": \"affordability\",\n        \"actionId\": \"competitor_match\",\n        \"action\": \"Price-match offer against the other network\",\n        \"recoveryRate\": 0.35,\n        \"n\": 52,\n        \"simulated\": true\n      },\n      {\n        \"reasonId\": \"network_quality\",\n        \"actionId\": \"care_bridge\",\n        \"action\": \"Call-centre bridge to the network team\",\n        \"recoveryRate\": 0.44,\n        \"n\": 96,\n        \"simulated\": true\n      },\n      {\n        \"reasonId\": \"activation_difficulty\",\n        \"actionId\": \"ussd_guide\",\n        \"action\": \"USSD navigation guide with a direct activation code\",\n        \"recoveryRate\": 0.52,\n        \"n\": 131,\n        \"simulated\": true\n      },\n      {\n        \"reasonId\": \"reduced_need\",\n        \"actionId\": \"reduced_need_checkin\",\n        \"action\": \"Reduced-need check-in call\",\n        \"recoveryRate\": 0.28,\n        \"n\": 74,\n        \"simulated\": true\n      },\n      {\n        \"reasonId\": \"competitor\",\n        \"actionId\": \"competitor_match\",\n        \"action\": \"Price-match offer against the other network\",\n        \"recoveryRate\": 0.3,\n        \"n\": 61,\n        \"simulated\": true\n      },\n      {\n        \"reasonId\": \"unknown\",\n        \"actionId\": \"reduced_need_checkin\",\n        \"action\": \"Reduced-need check-in call\",\n        \"recoveryRate\": 0.22,\n        \"n\": 40,\n        \"simulated\": true\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Average weekly GB across open cases (12 weeks)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/trends",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "trends"
+              ]
+            },
+            "description": "Average weekly GB across open cases (12 weeks)"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/dashboard/trends",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "dashboard",
+                    "trends"
+                  ]
+                },
+                "description": "Average weekly GB across open cases (12 weeks)"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"asOf\": \"2026-10-28T08:00:00.000Z\",\n    \"since\": \"2026-08-05\",\n    \"weeks\": [\n      {\n        \"weekStart\": \"2026-08-12\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1\n      },\n      {\n        \"weekStart\": \"2026-08-19\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1.02\n      },\n      {\n        \"weekStart\": \"2026-08-26\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1\n      },\n      {\n        \"weekStart\": \"2026-09-02\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1.01\n      },\n      {\n        \"weekStart\": \"2026-09-09\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1.03\n      },\n      {\n        \"weekStart\": \"2026-09-16\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1\n      },\n      {\n        \"weekStart\": \"2026-09-23\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1.01\n      },\n      {\n        \"weekStart\": \"2026-09-30\",\n        \"period\": \"baseline\",\n        \"customers\": 45,\n        \"avgGb\": 1.01\n      },\n      {\n        \"weekStart\": \"2026-10-07\",\n        \"period\": \"current\",\n        \"customers\": 45,\n        \"avgGb\": 0.63\n      },\n      {\n        \"weekStart\": \"2026-10-14\",\n        \"period\": \"current\",\n        \"customers\": 45,\n        \"avgGb\": 0.62\n      },\n      {\n        \"weekStart\": \"2026-10-21\",\n        \"period\": \"current\",\n        \"customers\": 45,\n        \"avgGb\": 0.62\n      },\n      {\n        \"weekStart\": \"2026-10-28\",\n        \"period\": \"current\",\n        \"customers\": 45,\n        \"avgGb\": 0.63\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Copilot",
+      "description": "Plain-language questions answered only from the backend's aggregates. The LLM may route off-script questions to a fixed intent and rephrase answers under a numeric grounding guard.",
+      "item": [
+        {
+          "name": "Ask the Executive Copilot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('conversationId', pm.response.json().data.conversationId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/copilot/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "copilot",
+                "chat"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Is the pilot working?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Ask the Executive Copilot\n\n`style: \"template\"` skips AI phrasing. Pass `conversationId` to continue a thread. Rate limit: 20/min.\n\nAI-backed: 20 requests/minute."
+          },
+          "response": [
+            {
+              "name": "201 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/copilot/chat",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "copilot",
+                    "chat"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"question\": \"Is the pilot working?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Ask the Executive Copilot\n\n`style: \"template\"` skips AI phrasing. Pass `conversationId` to continue a thread. Rate limit: 20/min.\n\nAI-backed: 20 requests/minute."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"00000000-0000-4000-8000-000000000008\",\n    \"conversationId\": \"00000000-0000-4000-8000-000000000009\",\n    \"question\": \"Is the pilot working?\",\n    \"intent\": \"pilot\",\n    \"routedBy\": \"keywords\",\n    \"answer\": \"It's too early to determine if the pilot is working. So far, 2 of 6 treated customers recovered (33%) compared to 2 of 8 matched controls (25%), showing an 8-point difference. However, the 95% intervals overlap, indicating we cannot yet distinguish a real effect from noise.\",\n    \"draftAnswer\": \"Too early to call. 2 of 6 treated customers recovered (33%), against 2 of 8 matched controls (25%) — a difference of 8 points. The 95% intervals overlap, so this pilot cannot separate a real effect from noise yet.\",\n    \"phrasedBy\": \"llm:openai/gpt-4o-mini\",\n    \"facts\": [\n      {\n        \"label\": \"Treated\",\n        \"value\": \"2/6 (10–70%)\",\n        \"source\": \"outcomes (treated) · Wilson 95% interval\"\n      },\n      {\n        \"label\": \"Control\",\n        \"value\": \"2/8 (7–59%)\",\n        \"source\": \"outcomes (control cohort) · Wilson 95% interval\"\n      },\n      {\n        \"label\": \"Difference\",\n        \"value\": \"8 points\",\n        \"source\": \"report summary\"\n      },\n      {\n        \"label\": \"Pilot window\",\n        \"value\": \"21 days\",\n        \"source\": \"detection_runs · population summary\"\n      }\n    ],\n    \"caveat\": \"These recovery rates are simulated placeholders. Real churn validation needs Orange historical outcomes, which we do not have.\",\n    \"followUps\": [\n      \"Why are customers disengaging?\",\n      \"How many customers are at risk?\"\n    ],\n    \"createdAt\": \"2026-11-10T12:31:22.237Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Suggested questions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/copilot/suggestions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "copilot",
+                "suggestions"
+              ]
+            },
+            "description": "Suggested questions"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/copilot/suggestions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "copilot",
+                    "suggestions"
+                  ]
+                },
+                "description": "Suggested questions"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    \"How many customers are at risk?\",\n    \"Which segment needs the most attention?\",\n    \"Why are customers disengaging?\",\n    \"Is the pilot working?\",\n    \"What should we do about affordability?\",\n    \"Tell me about LR-20417\"\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "A stored conversation thread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/copilot/conversations/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "copilot",
+                "conversations",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "A stored conversation thread"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Simulation",
+      "description": "DEMO ONLY. Plays Orange's channel returning a reply and the customer's post-intervention month. Mounted only when ENABLE_SIMULATION is on (default off in production).",
+      "item": [
+        {
+          "name": "DEMO: Orange's channel returns a reply (same ingestion as a real reply)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 or 404 or 409', () => pm.expect(pm.response.code).to.be.oneOf([201, 404, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/simulation/feedback-requests/{{requestId}}/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "simulation",
+                "feedback-requests",
+                "{{requestId}}",
+                "reply"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "DEMO: Orange's channel returns a reply (same ingestion as a real reply)\n\nAI-backed: 20 requests/minute."
+          },
+          "response": []
+        },
+        {
+          "name": "DEMO: deliver the intervention and simulate the customer's next 30 days",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 or 404 or 409', () => pm.expect(pm.response.code).to.be.oneOf([200, 404, 409]));",
+                  "pm.test('JSON body', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/simulation/interventions/{{interventionRef}}/advance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "simulation",
+                "interventions",
+                "{{interventionRef}}",
+                "advance"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "DEMO: deliver the intervention and simulate the customer's next 30 days"
+          },
+          "response": [
+            {
+              "name": "200 example",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/simulation/interventions/{{interventionRef}}/advance",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "simulation",
+                    "interventions",
+                    "{{interventionRef}}",
+                    "advance"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "DEMO: deliver the intervention and simulate the customer's next 30 days"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"reference\": \"INT-4106\",\n    \"scenario\": \"recover\",\n    \"simulatedPurchases\": 10,\n    \"windowEnd\": \"2026-12-09T18:29:22.235Z\",\n    \"simulated\": true\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000/api/v1",
+      "type": "string",
+      "description": "API base URL (the environment overrides it)"
+    },
+    {
+      "key": "customerId",
+      "value": "LR-20417",
+      "type": "string",
+      "description": "Customer used by the reference requests (the hero case)"
+    },
+    {
+      "key": "journeyCustomerId",
+      "value": "LR-08222",
+      "type": "string",
+      "description": "Customer used by the demo journey (needs a freshly seeded DB)"
+    },
+    {
+      "key": "requestId",
+      "value": "",
+      "type": "string",
+      "description": "Set by the journey: feedback request id"
+    },
+    {
+      "key": "classificationId",
+      "value": "",
+      "type": "string",
+      "description": "Set by the journey: reason (classification) id"
+    },
+    {
+      "key": "recommendationId",
+      "value": "",
+      "type": "string",
+      "description": "Set by the journey: recommendation id"
+    },
+    {
+      "key": "rejectRecommendationId",
+      "value": "",
+      "type": "string",
+      "description": "Set in \"Act\": recommendation used to demo a rejection"
+    },
+    {
+      "key": "interventionRef",
+      "value": "",
+      "type": "string",
+      "description": "Set by the journey: intervention reference (INT-…)"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string",
+      "description": "Set by Copilot requests: conversation id"
+    }
+  ]
+}
