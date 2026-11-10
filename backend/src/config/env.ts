@@ -20,6 +20,21 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  DATABASE_URL: z
+    .string({ error: 'is required (Neon pooled connection string)' })
+    .regex(/^postgres(ql)?:\/\//, 'must start with postgres:// or postgresql://')
+    .refine(
+      (url) => !url.includes('ep-example-pooler'),
+      'is still the placeholder from .env.example; paste your Neon pooled connection string',
+    ),
+  /** Optional: without a key, reply classification uses the keyword fallback. */
+  OPENROUTER_API_KEY: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined),
+  OPENROUTER_MODEL: z.string().trim().min(1).default('openai/gpt-4o-mini'),
+  OPENROUTER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(8000),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -28,7 +43,9 @@ if (!parsed.success) {
   const problems = parsed.error.issues
     .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
     .join('\n');
-  console.error(`Invalid environment configuration:\n${problems}`);
+  console.error(
+    `Invalid environment configuration:\n${problems}\nSee backend/.env.example for the expected variables.`,
+  );
   process.exit(1);
 }
 

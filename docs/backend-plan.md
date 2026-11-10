@@ -18,14 +18,14 @@ Scope source: *Resolve AI — New Foundation* (product source of truth). The rou
 
 > *We noticed something changed. We don't want to guess why. We use evidence, ask the customer when information is missing, understand the response with AI, recommend the appropriate action, and measure what happened next.*
 
-**Demo journey: Customer 10242**
+**Demo journey: Customer LR-20417**
 
-> Normally activates 18 bundles/month, only 6 this month (**−67%**) → detected, high priority → no behavioral evidence of a cause → feedback request handed off to Orange's SMS channel → Orange's channel collects the reply *"Money business hard dis time, I can't buy the big bundle again"* → Resolve AI ingests it → AI: `affordability`, confidence 0.86, negative sentiment → recommend an eligible lower-cost bundle → manager approves → handed off to Orange to execute → 30 days simulated → measured: activations recovered → appears in the report.
+> Normally activates 18 bundles/month, only 6 this month (**−67%**) → detected, high priority → no behavioral evidence of a cause → feedback request handed off to Orange's SMS channel → Orange's channel collects the reply *"Money hard this month. Buy small weekly."* → Resolve AI ingests it → AI: `affordability`, confidence 0.86, negative sentiment → recommend an eligible lower-cost bundle → manager approves → handed off to Orange to execute → 30 days simulated → measured: activations recovered → appears in the report.
 
 ## 2. Guiding rules
 
 1. **The LLM is never the source of truth.** Metrics, priorities, recommendations and outcomes are deterministic. The LLM only (a) classifies free text into a fixed reason code and (b) phrases summaries of structured facts.
-2. **Fixed reason taxonomy** with `unknown` and `other`. Low confidence → `needs_review`.
+2. **Fixed reason taxonomy** (6 codes, matching the frontend) with `unknown`. Low confidence → `needs_review`.
 3. **AI is optional at runtime.** If OpenRouter fails or times out, a keyword classifier takes over and the result is marked `keyword_fallback`.
 4. **Resolve AI never contacts customers.** It decides *who* needs feedback and *why*, then hands the request to Orange's existing channel, which does the outreach. Requests are only suggested for prioritized customers whose reason is unknown, not for every customer.
 5. **Human in the loop.** Nothing is handed off for execution without an approval record.
@@ -90,10 +90,11 @@ Each module: `*.routes.ts` (HTTP only) → `*.service.ts` (logic) → `*.reposit
 | `affordability` | "money hard", "can't buy the big bundle" · weak evidence: trading down to cheaper bundles | Eligible lower-cost bundle / commercial intervention |
 | `network_quality` | Evidence: decline overlaps a network incident in the customer's region · "no network", "data too slow" | Route to network/service team |
 | `reduced_need` | "I don't use data much now", "got Wi-Fi at work" | **No incentive**; monitor |
-| `competitor_usage` | "using other network now", "their bundle cheaper" | Eligible retention/competitive intervention |
+| `competitor` | "using other network now", "their bundle cheaper" | Eligible retention/competitive intervention |
 | `activation_difficulty` | Evidence: rising failed activations · "can't buy bundle", "USSD code not working" | Education / activation instructions |
-| `other` | Clear reason outside the list | Human review |
-| `unknown` | No evidence, no reply, or low confidence | Collect more evidence or human review |
+| `unknown` | No evidence, no reply, low confidence, or a reason outside the list | Collect more evidence or human review |
+
+Reason IDs match the frontend (`frontend/data/reason-taxonomy.json`) and are stored in the `reasons` table.
 
 ### Channels
 
@@ -123,29 +124,20 @@ The channel list lives in config so more channels can be added without schema ch
 
 ## 7. Data model
 
-Evolves the committed ERD. **+** marks additions.
+Implemented in F1. Full diagram and the v1 → v2 mapping are in [`docs/erd.md`](erd.md); the code source of truth is `backend/src/db/schema/`.
 
-**Catalog & activity (Detect)**
-- **customers** — `id`, `customer_code` (e.g. `10242`), `display_name`, `segment`, `region`, `tenure_months`, `scenario` (synthetic label, never shown as truth), `created_at`
-- **+ bundles** (catalog) — `id`, `name`, `validity` (`daily` | `weekly` | `monthly`), `data_mb`, `price`, `currency` (`USD` | `LRD`)
-- **bundle_activations** (ERD `BUNDLE_ACTIVITY`) — `id`, `customer_id`, `bundle_id`, `price_paid`, `currency` (`USD` | `LRD`), `activation_channel` (`ussd` | `app` | `agent`), `status` (`success` | `failed`), `activated_at`
-- **+ network_incidents** — `id`, `region`, `severity`, `started_at`, `ended_at` (evidence for `network_quality`)
-- **customer_metrics** — `customer_id`, `window` (`baseline` | `current` | `post_intervention`), `activations`, `spend_usd`, `spend_lrd`, `spend_usd_equivalent`, `avg_bundle_price_usd_equivalent`, `active_days`, `failed_activation_rate`, `last_activation_at`, `calculated_at`
-- **engagement_signals** (ERD) — `id`, `customer_id`, `signal_type`, `baseline_value`, `current_value`, `change_pct`, `severity`, `observed_at`
-- **behavioral_assessments** (ERD) — `id`, `customer_id`, `baseline_period`, `behavior_score`, `priority_level`, `top_signals` (jsonb), `model_version`, `created_at`
+A **case** (one detection episode for a customer) is the central record, matching the frontend's case-based workflow. It replaces the v1 `BEHAVIORAL_ASSESSMENT` and `ENGAGEMENT_SIGNAL` entities.
 
-**Understand**
-- **feedback_requests** (ERD) — `id`, `customer_id`, `trigger_reason`, `priority`, `channel`, `status` (`pending` | `handed_off` | `responded` | `no_response`), `handed_off_at`, `responded_at`
-- **customer_feedback** (ERD) — `id`, `customer_id` (nullable for unlinked public comments), `feedback_request_id` (nullable for inbound), `channel`, `region`, `raw_response`, `simulated`, `received_at`
-- **+ customer_reasons** — `id`, `customer_id`, `reason_code`, `source` (`evidence` | `feedback` | `human`), `confidence`, `sentiment`, `summary`, `evidence` (jsonb), `feedback_id`, `classified_by` (`rules` | `llm:<model>` | `keyword_fallback` | `human`), `needs_review`, `created_at`
+| Area | Tables |
+|---|---|
+| Catalog | `reasons`, `bundles` (USD/LRD), `actions` (next-best-action library with eligibility rules), `action_reasons`, `campaign_history` (synthetic recovery rates) |
+| Detect inputs | `customers` (`LR-20417` style IDs, value tier, masked MSISDN), `customer_weekly_usage` (GB consumed per week, added in F2), `bundle_activations` (one row per purchase, success/failed, currency), `network_faults` (customer reports and regional incidents) |
+| Detect | `detection_runs`, `customer_metrics` (per run × customer × period: baseline/current/post-intervention), `cases` (priority score, contributions, queue status) |
+| Understand | `feedback_requests` (handed off to Orange channels), `customer_feedback`, `reason_classifications` (reason, confidence, alternatives, evidence, source, human review) |
+| Recommend / Act / Measure | `recommendations` (chosen action, eligibility checks, alternatives considered), `interventions` (`INT-4100` style references), `outcomes` (treated cases + matched control cohort) |
+| Copilot (F10) | `ai_conversations`, added with its own migration in F10 |
 
-**Recommend / Act / Measure**
-- **recommendations** — `id`, `customer_id`, `assessment_id`, `reason_id`, `action_type`, `rationale`, `objective`, `confidence`, `status` (`pending` | `approved` | `rejected`), `created_at`
-- **interventions** (ERD) — `id`, `recommendation_id`, `approved_by`, `channel`, `note`, `status` (`approved` | `handed_off` | `executed` | `cancelled`), `handed_off_at`, `executed_at`, `created_at`. Execution is done by Orange's workflow; Resolve AI records the confirmation
-- **outcomes** (ERD) — `id`, `intervention_id`, `customer_id`, `pre_metrics` (jsonb), `post_metrics` (jsonb), `change_pct`, `outcome_type` (`re_engaged` | `partially_engaged` | `no_change` | `declined_further`), `notes`, `measured_at`
-
-**Copilot**
-- **+ ai_conversations** — `id`, `question`, `intent`, `query_ref` (jsonb), `answer`, `model`, `created_at`
+Conventions: readable text keys where the UI shows them (`LR-20417`, `daily_mini_600`, `RUN-…`, `INT-…`); `uuid` elsewhere; fixed sets as Postgres enums; channels as config-validated text; timestamps `timestamptz`.
 
 ## 8. Feature roadmap
 
@@ -154,33 +146,43 @@ One feature = one branch → one PR into `main`. The demo journey is complete at
 | # | Feature | Delivers | Endpoints (`/api/v1`) |
 |---|---|---|---|
 | F0 | **Foundation** | TS + Express 5, env validation, error/404 handling, logger, CORS for the frontend origin, lint/format, `.env.example`, backend README | `GET /health` |
-| F1 | **Database & schema** | Neon + Drizzle, all tables, first migration; update `docs/erd.md` + ERD image | — |
-| F2 | **Synthetic data** | Reproducible seed: USD and LRD bundle catalog, ~500 customers, 90 days of activations, network incidents, inbound feedback (customer service, Facebook), informal reply library; `npm run db:seed` | — |
-| F3 | **Detect** | Baseline (days 31–90) vs current (last 30) metrics, signals, priority score + level | `GET /customers`, `GET /customers/:id`, `GET /risk`, `GET /risk/:customerId`, `GET /segments`, `GET /segments/:id` |
-| F4 | **Understand: evidence** | Evidence rules (failed activations, network incidents, trading down); weak or no evidence → `unknown` → feedback request suggested for prioritized customers | `GET /customers/:id/reasons`, `GET /feedback-requests` (queue) |
-| F5 | **Understand: channels & AI** | Hand off feedback requests to an Orange channel; ingest the replies the channel returns, plus inbound feedback; LLM classification + keyword fallback; human override. The simulation route plays Orange's channel returning a reply | `POST /customers/:id/feedback-requests`, `POST /feedback-requests/:id/responses`, `POST /feedback` (inbound), `PATCH /reasons/:id`, `POST /simulation/feedback-requests/:id/reply` |
-| F6 | **Recommend** | Rules: change + reason → action, rationale, objective, confidence | `GET /recommendations`, `GET /recommendations/:id`, `GET /customers/:id/insights` (Customer 360) |
-| F7 | **Act** | Approve/reject a recommendation (`:id` = **recommendation id**); approval creates the intervention and marks it handed off to Orange's workflow | `POST /actions/:id/approve`, `POST /actions/:id/reject` |
-| F8 | **Measure** | Simulate post-intervention activity, recompute metrics, deterministic outcome (`:id` = **intervention id**) | `POST /simulation/interventions/:id/advance`, `POST /interventions/:id/outcome` |
-| F9 | **Report** | Overview, trends, drivers, reasons, feedback coverage/unknowns, actions, outcomes | `GET /dashboard/overview`, `GET /dashboard/trends`, `GET /reports/drivers`, `GET /reports/feedback-coverage`, `GET /reports/actions`, `GET /reports/outcomes` |
-| F10 | **Copilot & AI summaries** | Intent → whitelisted aggregate → LLM phrases answer (3–5 questions); AI explanation on Customer 360; AI decision summary of a report | `POST /copilot/chat`, `POST /reports/summary` |
+| F1 | **Database & schema** | Neon + Drizzle, 17 tables (18 after F2), first migration, DB status in `/health`; Mermaid ERD in `docs/erd.md` | `GET /health` (adds `database`) |
+| F2 | **Synthetic data** | Port of the frontend generator (same 45 IDs and figures, parity-checked), plus weekly usage, purchase events in USD and LRD, care contacts, fault reports, catalog, pilot history (feedback, classifications, interventions, treated outcomes, controls); `npm run db:seed`, `npm run db:verify`; shared scoring + keyword classifier modules | — |
+| F3 | **Detect** | Re-runnable detection from raw data (shared `detection.compute.ts`, also used by the seed). Usage: baseline 8 weeks vs current 4 weeks. Activations: last 30 days vs the 60 days before ÷ 2. Flag at usage change ≤ −15%. Priority score + band, queue. Responses mirror the frontend `QueueRow` / `detectSummary` | `GET /risk`, `GET /risk/summary`, `GET /risk/:customerId`, `GET /customers`, `GET /customers/:customerId`, `GET /segments`, `GET /segments/:band`, `GET /detection-runs/latest`, `POST /detection-runs` |
+| F4 | **Understand: evidence** | Evidence rules (failed activations, regional incidents + own fault reports, trading down) → strength; ≥ 0.80 = reason known; next step `classified` / `use_evidence` / `awaiting_reply` / `request_feedback` / `monitor`; human accepts evidence → case `ready`. Seed adds failed attempts (LR-14806) and a Ganta outage (explains 5 cases). Reason view mirrors the frontend `ClassificationView` | `GET /customers/:id/reasons`, `POST /customers/:id/reasons/evidence`, `GET /feedback-requests`, `GET /feedback-requests/suggestions` |
+| F5 | **Understand: channels & AI** ✅ | Hand-off to Orange outbound channels (7-day reply window, then follow-up), reply ingestion, simulated Orange reply (demo), inbound feedback (preview only), human override (adds a `human` reason). OpenRouter behind `LlmProvider` (text + taxonomy only, Zod-validated, 8 s timeout, 1 retry) with keyword fallback | `POST /customers/:id/feedback-requests`, `POST /feedback-requests/:id/responses`, `POST /simulation/feedback-requests/:id/reply`, `POST /feedback`, `PATCH /reasons/:classificationId` |
+| F6 | **Recommend** ✅ | Port of the prototype recommendAction/evaluateRule (campaign history → predicted recovery, 9 eligibility rules); live view + persisted pending snapshot | `GET /customers/:id/recommendation`, `POST /customers/:id/recommendations`, `GET /recommendations`, `GET /recommendations/:id` |
+| F7 | **Act** ✅ | Approve / change (eligible alternative) / reject ("send to human review"); approval creates `INT-<next>` handed off to Orange workflow; case → `action_done` | `POST /actions/:recommendationId/approve`, `POST /actions/:recommendationId/reject`, `GET /interventions`, `GET /interventions/:id` |
+| F8 | **Measure** ✅ | Simulated 30-day window (deterministic scenario from predicted recovery), outcome by share of drop recovered, `post_intervention` metrics, ported measureView timeline | `POST /simulation/interventions/:id/advance`, `POST /interventions/:id/outcome`, `GET /customers/:id/measure` |
+| F9 | **Report** ✅ | Ported reportView (treated vs control with the correct Wilson 95% CI), drivers/coverage, action funnel, weekly usage trend | `GET /reports/summary`, `GET /reports/drivers`, `GET /reports/actions`, `GET /dashboard/trends` |
+| F10 | **Copilot** ✅ | Port of the prototype copilot.ts (8 intents + refusal, keyword routing, facts with provenance); LLM only routes off-keyword questions to a whitelisted intent and optionally rephrases under a numeric grounding guard; turns stored in `ai_conversations` (migration 0003) | `POST /copilot/chat`, `GET /copilot/suggestions`, `GET /copilot/conversations/:id` |
 | F11 | **Hardening & deploy** | CORS, rate limit on AI routes, deploy, seed on deploy, demo checklist; automated tests if time allows | — |
 
 ### Synthetic scenarios (F2)
 
 | Scenario | Behavior | Reason path → action |
 |---|---|---|
-| **Hero (10242)** | 18 → 6 bundles/month (−67%) | No evidence → Orange SMS → `affordability` → lower-cost bundle |
+| **Hero (LR-20417)** | 18 → 6 bundles/month (−67%) | No evidence → Orange SMS → `affordability` → lower-cost bundle |
 | Activation trouble | Rising failed activations | **Evidence** → `activation_difficulty` → activation instructions |
 | Network outage | Decline during a regional incident | **Evidence** → `network_quality` → route to network team |
-| Competitor | Sharp stop | No evidence → Orange voice call → `competitor_usage` → retention offer |
+| Competitor | Sharp stop | No evidence → Orange voice call → `competitor` → retention offer |
 | Reduced need | Gradual decline | No evidence → Orange USSD → `reduced_need` → no incentive |
 | Silent | Decline, no reply | `no_response` → `unknown` → field agent interview / human review |
 | Healthy / growing | Stable or rising | No action |
 
 ### Priority score v1 (F3)
 
-Weighted, normalized declines (each 0–1) × 100. Weights: activation frequency 0.35, spend 0.20, active days 0.15, recency 0.15, failed-activation increase 0.10, bundle downgrade 0.05. Levels: `low` < 40 ≤ `medium` < 70 ≤ `high`. All values live in `config/rules.ts`, tuned so 10242 lands high.
+Same formula as the frontend (`frontend/lib/analytics.ts`), so the numbers on screen don't change when the UI switches to the API. Five visible contributions, each capped:
+
+| Contribution | Points |
+|---|---|
+| Usage drop vs own baseline | `min(40, round(drop% × 0.58))` |
+| Value tier | high 18 · medium 10 · low 4 |
+| Tenure | `min(15, round(months / 3))` |
+| Days inactive | `min(12, round(days / 2.2))` |
+| Recent care contacts (30 days) | `min(8, contacts × 3)` |
+
+Bands: `high` ≥ 75, `medium` ≥ 55, otherwise `low`. All values live in `config/rules.ts`.
 
 ### Outcome rule v1 (F8)
 

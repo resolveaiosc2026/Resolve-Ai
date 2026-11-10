@@ -61,16 +61,21 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next)
     return;
   }
 
+  // Drizzle wraps driver errors ("Failed query: …"); the real reason is in `cause`.
+  const cause = err instanceof Error && err.cause instanceof Error ? err.cause : undefined;
   logger.error('Unhandled error', {
     method: req.method,
     path: req.originalUrl,
     error: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : err,
+    cause: cause ? { name: cause.name, message: cause.message } : undefined,
   });
 
   const message =
     env.NODE_ENV === 'production' || !(err instanceof Error)
       ? 'An unexpected error occurred'
-      : err.message;
+      : cause
+        ? `${err.message.split('\n')[0]} (cause: ${cause.message})`
+        : err.message;
 
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message } } satisfies ErrorBody);
 };
