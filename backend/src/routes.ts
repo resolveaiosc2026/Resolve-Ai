@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { env } from './config/env.js';
 import { customersRouter } from './modules/customers/customers.routes.js';
 import { detectionRunsRouter, riskRouter, segmentsRouter } from './modules/detect/detect.routes.js';
+import { copilotRouter } from './modules/copilot/copilot.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import {
   actionsRouter,
@@ -44,6 +45,7 @@ apiRouter.use('/interventions', interventionsRouter);
 // 6. Report
 apiRouter.use('/reports', reportsRouter);
 apiRouter.use('/dashboard', dashboardRouter);
+apiRouter.use('/copilot', copilotRouter);
 
 // Demo only: plays Orange's channel and the post-intervention window. Never in production.
 if (env.NODE_ENV !== 'production') apiRouter.use('/simulation', simulationRouter);
