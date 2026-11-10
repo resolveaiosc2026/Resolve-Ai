@@ -819,3 +819,96 @@ The funnel per action: `recommended`, `approved`, `changedTo`, `rejected`, `deli
 ### `GET /dashboard/trends`
 
 Average weekly GB across open cases for the 12 detection weeks: `weeks[] { weekStart, period: "baseline" | "current", customers, avgGb }`.
+
+---
+
+## Executive Copilot
+
+Plain-language questions answered **only from Resolve AI's own aggregates**: the same figures the dashboard shows. Each answer lists its facts with provenance. The pipeline is a port of the prototype's `copilot.ts`:
+
+| Step      | How                                               | LLM role                                                                                                                                                 |
+| --------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Route  | Keyword rules (same order as the prototype)       | Only when the keywords find nothing: picks one intent from the fixed list below (Zod-validated). A customer it names must exist, or the Copilot refuses  |
+| 2. Facts  | Detect, Understand, Recommend and Report services | None                                                                                                                                                     |
+| 3. Answer | Deterministic template (prototype wording)        | Optional rephrasing. **Rejected if it contains any number that isn't in the facts or the template** (numeric grounding guard); the template is then used |
+
+**Intents:**
+
+| Intent       | Example question                                                        |
+| ------------ | ----------------------------------------------------------------------- |
+| `customer`   | Tell me about LR-20417 / this customer                                  |
+| `pilot`      | Is the pilot working?                                                   |
+| `population` | How many customers are at risk?                                         |
+| `segment`    | Which segment needs the most attention?                                 |
+| `reasons`    | Why are customers disengaging?                                          |
+| `action`     | What should we do about affordability / network quality / activation?   |
+| `approvals`  | What is waiting for approval?                                           |
+| `trust`      | How confident are we in the reasons?                                    |
+| `unknown`    | Honest refusal: "I only answer from the data loaded in this workbench…" |
+
+Without `OPENROUTER_API_KEY`, routing is keywords-only and every answer is the template.
+
+### `POST /copilot/chat`
+
+Body: `{ "question": string (1–500), "conversationId"?: uuid, "style"?: "natural" | "template" }`. `style: "template"` skips the LLM phrasing. Pass `conversationId` to continue a thread.
+
+**201**:
+
+```json
+{
+  "data": {
+    "id": "…",
+    "conversationId": "…",
+    "question": "Is the pilot working?",
+    "intent": "pilot",
+    "routedBy": "keywords",
+    "answer": "It's too early to determine if the pilot is working. So far, 2 of 6 treated customers recovered (33%) compared to 2 of 8 matched controls (25%), showing an 8-point difference. However, the 95% intervals overlap, indicating we cannot yet distinguish a real effect from noise.",
+    "draftAnswer": "Too early to call. 2 of 6 treated customers recovered (33%), against 2 of 8 matched controls (25%) — a difference of 8 points. The 95% intervals overlap, so this pilot cannot separate a real effect from noise yet.",
+    "phrasedBy": "llm:openai/gpt-4o-mini",
+    "facts": [
+      {
+        "label": "Treated",
+        "value": "2/6 (10–70%)",
+        "source": "outcomes (treated) · Wilson 95% interval"
+      },
+      {
+        "label": "Control",
+        "value": "2/8 (7–59%)",
+        "source": "outcomes (control cohort) · Wilson 95% interval"
+      },
+      {
+        "label": "Difference",
+        "value": "8 points",
+        "source": "report summary"
+      },
+      {
+        "label": "Pilot window",
+        "value": "21 days",
+        "source": "detection_runs · population summary"
+      }
+    ],
+    "caveat": "These recovery rates are simulated placeholders. Real churn validation needs Orange historical outcomes, which we do not have.",
+    "followUps": [
+      "Why are customers disengaging?",
+      "How many customers are at risk?"
+    ],
+    "createdAt": "…"
+  }
+}
+```
+
+- `routedBy`: `keywords` | `llm`
+- `phrasedBy`: `template` | `llm:<model>`
+- `draftAnswer` is always the deterministic template; `answer === draftAnswer` when `phrasedBy` is `template`
+
+Errors: `400` (empty or over-long question, bad uuid, unknown field), `404` (unknown `conversationId`).
+
+### `GET /copilot/suggestions`
+
+The 6 suggested questions (same as the prototype).
+
+### `GET /copilot/conversations/:conversationId`
+
+`{ "conversationId", "turns": [ /* answers as above, oldest first */ ] }`. Errors: `404`.
+
+Stored turns live in `ai_conversations`. They are references to the facts used, not a source of truth.

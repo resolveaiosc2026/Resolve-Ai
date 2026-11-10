@@ -169,6 +169,16 @@ erDiagram
         outcome_type outcome_type
         bool recovered
     }
+    AI_CONVERSATIONS {
+        uuid id PK
+        uuid conversation_id
+        text question
+        text intent
+        text routed_by "keywords or llm"
+        jsonb facts "with provenance"
+        text answer
+        text phrased_by "template or llm"
+    }
 ```
 
 ## Mapping from the v1 diagram
@@ -186,4 +196,4 @@ The first-round diagram ([`diagrams/erd.png`](diagrams/erd.png), superseded) map
 | RECOMMENDATION | `recommendations` + `actions` / `action_reasons` / `campaign_history` |
 | INTERVENTION | `interventions` |
 | OUTCOME | `outcomes` (treated cases and a matched control cohort) |
-| (new) | `network_faults`, `detection_runs`, `reasons` |
+| (new) | `network_faults`, `detection_runs`, `reasons`, `ai_conversations` (Copilot turns, F10) |

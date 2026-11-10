@@ -155,7 +155,7 @@ One feature = one branch → one PR into `main`. The demo journey is complete at
 | F7 | **Act** ✅ | Approve / change (eligible alternative) / reject ("send to human review"); approval creates `INT-<next>` handed off to Orange workflow; case → `action_done` | `POST /actions/:recommendationId/approve`, `POST /actions/:recommendationId/reject`, `GET /interventions`, `GET /interventions/:id` |
 | F8 | **Measure** ✅ | Simulated 30-day window (deterministic scenario from predicted recovery), outcome by share of drop recovered, `post_intervention` metrics, ported measureView timeline | `POST /simulation/interventions/:id/advance`, `POST /interventions/:id/outcome`, `GET /customers/:id/measure` |
 | F9 | **Report** ✅ | Ported reportView (treated vs control with the correct Wilson 95% CI), drivers/coverage, action funnel, weekly usage trend | `GET /reports/summary`, `GET /reports/drivers`, `GET /reports/actions`, `GET /dashboard/trends` |
-| F10 | **Copilot & AI summaries** | Intent → whitelisted aggregate → LLM phrases answer (3–5 questions); AI explanation on Customer 360; AI decision summary of a report | `POST /copilot/chat`, `POST /reports/summary` |
+| F10 | **Copilot** ✅ | Port of the prototype copilot.ts (8 intents + refusal, keyword routing, facts with provenance); LLM only routes off-keyword questions to a whitelisted intent and optionally rephrases under a numeric grounding guard; turns stored in `ai_conversations` (migration 0003) | `POST /copilot/chat`, `GET /copilot/suggestions`, `GET /copilot/conversations/:id` |
 | F11 | **Hardening & deploy** | CORS, rate limit on AI routes, deploy, seed on deploy, demo checklist; automated tests if time allows | — |
 
 ### Synthetic scenarios (F2)
