@@ -146,3 +146,14 @@ export const CHANNEL_LABELS: Record<Channel, string> = {
   customer_service: 'Call centre',
   facebook_comment: 'Facebook page comment',
 };
+
+/** Per-IP rate limits (in-memory store: one Railway instance). */
+export const RATE_LIMITS = {
+  windowMs: 60_000,
+  /** LLM-backed routes: copilot chat, reply ingestion, inbound feedback, simulated replies. */
+  ai: 20,
+  /** All other POST / PATCH routes. */
+  write: 120,
+  /** GET routes. */
+  read: 600,
+} as const;
