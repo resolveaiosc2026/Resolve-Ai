@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
           <span>
             <span className="brand-name">Resolve AI</span>
-            <span className="brand-sub">Retention workbench</span>
+            <span className="brand-sub">RETENTION WORKBENCH</span>
           </span>
         </div>
         <nav className="nav" aria-label="Workbench">
