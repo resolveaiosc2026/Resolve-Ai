@@ -29,4 +29,6 @@ export interface LlmProvider {
   readonly name: string;
   /** Receives ONLY the reply text and the taxonomy (no customer identifiers). */
   classifyFeedback(text: string, taxonomy: TaxonomyEntry[]): Promise<LlmClassification>;
+  /** Generic JSON-mode chat call; the caller MUST validate the result with Zod. */
+  completeJson(system: string, user: string): Promise<unknown>;
 }

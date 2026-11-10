@@ -46,6 +46,12 @@ export class OpenRouterProvider implements LlmProvider {
   }
 
   async classifyFeedback(text: string, taxonomy: TaxonomyEntry[]): Promise<LlmClassification> {
+    const json = await this.completeJson(systemPrompt(taxonomy), `<reply>${text}</reply>`);
+    return llmClassificationSchema.parse(json);
+  }
+
+  /** JSON-mode chat completion. Returns parsed JSON (unvalidated: callers validate with Zod). */
+  async completeJson(system: string, user: string): Promise<unknown> {
     const response = await fetch(ENDPOINT, {
       method: 'POST',
       signal: AbortSignal.timeout(this.timeoutMs),
@@ -59,8 +65,8 @@ export class OpenRouterProvider implements LlmProvider {
         temperature: 0,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: systemPrompt(taxonomy) },
-          { role: 'user', content: `<reply>${text}</reply>` },
+          { role: 'system', content: system },
+          { role: 'user', content: user },
         ],
       }),
     });
@@ -71,8 +77,7 @@ export class OpenRouterProvider implements LlmProvider {
     };
     const content = body.choices?.[0]?.message?.content;
     if (!content) throw new Error('OpenRouter returned no content');
-    // Tolerate a fenced block; anything else is rejected by the schema.
-    const json = content.replace(/^```(?:json)?\s*|\s*```$/g, '');
-    return llmClassificationSchema.parse(JSON.parse(json));
+    // Tolerate a fenced block; anything else is rejected by the caller's schema.
+    return JSON.parse(content.replace(/^```(?:json)?\s*|\s*```$/g, '')) as unknown;
   }
 }
