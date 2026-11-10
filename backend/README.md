@@ -51,19 +51,21 @@ The dataset is a faithful port of the frontend generator (`frontend/scripts/gene
 
 ## Scripts
 
-| Script                            | What it does                                     |
-| --------------------------------- | ------------------------------------------------ |
-| `npm run dev`                     | Start the API with auto-reload (tsx)             |
-| `npm run build`                   | Compile TypeScript to `dist/`                    |
-| `npm start`                       | Run the compiled API from `dist/`                |
-| `npm run typecheck`               | Type-check without emitting                      |
-| `npm run lint`                    | ESLint                                           |
-| `npm run format` / `format:check` | Prettier write / check                           |
-| `npm run db:generate`             | Generate a SQL migration from schema changes     |
-| `npm run db:migrate`              | Apply pending migrations to the database         |
-| `npm run db:studio`               | Browse the database in Drizzle Studio            |
-| `npm run db:seed`                 | Wipe and load the synthetic pilot dataset        |
-| `npm run db:verify`               | Check the seeded data against the anchor figures |
+| Script                            | What it does                                                          |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `npm run dev`                     | Start the API with auto-reload (tsx)                                  |
+| `npm run build`                   | Compile TypeScript to `dist/`                                         |
+| `npm start`                       | Run the compiled API from `dist/`                                     |
+| `npm run typecheck`               | Type-check without emitting                                           |
+| `npm run lint`                    | ESLint                                                                |
+| `npm run format` / `format:check` | Prettier write / check                                                |
+| `npm run db:generate`             | Generate a SQL migration from schema changes                          |
+| `npm run db:migrate`              | Apply pending migrations to the database                              |
+| `npm run db:studio`               | Browse the database in Drizzle Studio                                 |
+| `npm run db:seed`                 | Wipe and load the synthetic pilot dataset                             |
+| `npm run db:verify`               | Check the seeded data against the anchor figures                      |
+| `npm run db:migrate:deploy`       | Apply migrations with the runtime migrator (deploys; run after build) |
+| `npm run docs:build`              | Regenerate OpenAPI + Postman files (run on a freshly seeded DB)       |
 
 ## Environment
 
@@ -77,6 +79,8 @@ The dataset is a faithful port of the frontend generator (`frontend/scripts/gene
 | `OPENROUTER_API_KEY`    | _(empty)_               | Optional. AI reply classification via OpenRouter; empty = deterministic keyword fallback. Secret: never commit |
 | `OPENROUTER_MODEL`      | `openai/gpt-4o-mini`    | OpenRouter model id                                                                                            |
 | `OPENROUTER_TIMEOUT_MS` | `8000`                  | Per-call timeout (one retry, then fallback)                                                                    |
+| `ENABLE_SIMULATION`     | on outside production   | Demo-only `/simulation/*` routes; set `true` on Railway for the hosted demo                                    |
+| `RATE_LIMIT_ENABLED`    | `true`                  | Per-IP limits (AI 20/min, writes 120/min, reads 600/min)                                                       |
 
 The environment is validated at startup; the server refuses to start with a clear message if a value is invalid.
 
@@ -101,7 +105,7 @@ Routes stay thin (HTTP only), services hold business logic, repositories hold da
 
 ## Endpoints
 
-Full contract with examples: [`docs/api-contract.md`](../docs/api-contract.md).
+Full contract with examples: [`docs/api-contract.md`](../docs/api-contract.md). Frontend & agent guide: [`docs/API.md`](../docs/API.md). OpenAPI 3.1: `/api/v1/openapi.json` ([`docs/openapi.json`](../docs/openapi.json)); interactive reference: `/api/v1/docs`. Postman: [`docs/postman/`](../docs/postman/). Deployment: [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md).
 
 | Method | Path                                                 | Purpose                                                                |
 | ------ | ---------------------------------------------------- | ---------------------------------------------------------------------- |

@@ -1,6 +1,8 @@
 # API Contract — Resolve AI Backend
 
-Base URL (local): `http://localhost:4000/api/v1`
+Base URLs: production `https://resolve-ai-production-8093.up.railway.app/api/v1` · local `http://localhost:4000/api/v1`
+
+Also available: **[docs/API.md](API.md)** (frontend & agent guide) · **[docs/openapi.json](openapi.json)** (OpenAPI 3.1, also served at `/api/v1/openapi.json`) · interactive reference at `/api/v1/docs` · **[docs/postman/](postman/)** (collection + Local/Railway environments) · **[docs/DEPLOYMENT.md](DEPLOYMENT.md)**.
 
 This document is the agreement between backend and frontend. Each backend feature adds its endpoints here, with example responses, in the same PR as the code.
 
@@ -10,19 +12,23 @@ This document is the agreement between backend and frontend. Each backend featur
 - **Success:** `{ "data": <object | array>, "meta"?: { "page", "pageSize", "total" } }`. `meta` appears only on paginated lists.
 - **Error:** `{ "error": { "code": "<STABLE_CODE>", "message": "<human readable>", "details"?: [{ "path", "message" }] } }`
 
-| Status | Code                   | When                                                                                 |
-| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
-| 400    | `VALIDATION_ERROR`     | Params, query or body failed validation (`details` lists each field)                 |
-| 400    | `INVALID_JSON`         | Body is not valid JSON                                                               |
-| 404    | `ROUTE_NOT_FOUND`      | No such endpoint                                                                     |
-| 404    | `NOT_FOUND`            | Resource does not exist                                                              |
-| 409    | `CONFLICT`             | Invalid state transition (for example, approving an already approved recommendation) |
-| 413    | `PAYLOAD_TOO_LARGE`    | JSON body larger than 100 KB                                                         |
-| 415    | `UNSUPPORTED_ENCODING` | Body uses an unsupported charset or encoding                                         |
-| 500    | `INTERNAL_ERROR`       | Unexpected server error                                                              |
+| Status | Code                   | When                                                                                                           |
+| ------ | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`     | Params, query or body failed validation (`details` lists each field)                                           |
+| 400    | `INVALID_JSON`         | Body is not valid JSON                                                                                         |
+| 404    | `ROUTE_NOT_FOUND`      | No such endpoint                                                                                               |
+| 404    | `NOT_FOUND`            | Resource does not exist                                                                                        |
+| 409    | `CONFLICT`             | Invalid state transition (for example, approving an already approved recommendation)                           |
+| 413    | `PAYLOAD_TOO_LARGE`    | JSON body larger than 100 KB                                                                                   |
+| 415    | `UNSUPPORTED_ENCODING` | Body uses an unsupported charset or encoding                                                                   |
+| 429    | `RATE_LIMITED`         | Per-IP rate limit exceeded (AI routes 20/min, other writes 120/min, reads 600/min); see the `RateLimit` header |
+| 500    | `INTERNAL_ERROR`       | Unexpected server error                                                                                        |
 
 - No authentication in the MVP. Write actions take a `reviewerName` in the body where a person is recorded.
-- CORS allows the origins in `CORS_ORIGIN` (default `http://localhost:3000`).
+- CORS allows the origins in `CORS_ORIGIN` (production: `https://resolve-ai-omega.vercel.app`, `http://localhost:3000`); trailing slashes are ignored and one `*` per entry is allowed for preview URLs.
+- Security headers (helmet) on every response. Rate-limit headers: `RateLimit`, `RateLimit-Policy`.
+- `GET /` and `GET /api/v1` return service info with links to `/api/v1/docs`, `/api/v1/openapi.json` and `/api/v1/health`.
+- Simulation routes (`/simulation/*`) exist only when `ENABLE_SIMULATION` is on (default off in production; on for the hosted demo). `/health` reports `simulation: "on" | "off"`.
 
 ## Endpoints
 

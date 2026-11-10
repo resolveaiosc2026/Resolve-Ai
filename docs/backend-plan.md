@@ -156,7 +156,7 @@ One feature = one branch → one PR into `main`. The demo journey is complete at
 | F8 | **Measure** ✅ | Simulated 30-day window (deterministic scenario from predicted recovery), outcome by share of drop recovered, `post_intervention` metrics, ported measureView timeline | `POST /simulation/interventions/:id/advance`, `POST /interventions/:id/outcome`, `GET /customers/:id/measure` |
 | F9 | **Report** ✅ | Ported reportView (treated vs control with the correct Wilson 95% CI), drivers/coverage, action funnel, weekly usage trend | `GET /reports/summary`, `GET /reports/drivers`, `GET /reports/actions`, `GET /dashboard/trends` |
 | F10 | **Copilot** ✅ | Port of the prototype copilot.ts (8 intents + refusal, keyword routing, facts with provenance); LLM only routes off-keyword questions to a whitelisted intent and optionally rephrases under a numeric grounding guard; turns stored in `ai_conversations` (migration 0003) | `POST /copilot/chat`, `GET /copilot/suggestions`, `GET /copilot/conversations/:id` |
-| F11 | **Hardening & deploy** | CORS, rate limit on AI routes, deploy, seed on deploy, demo checklist; automated tests if time allows | — |
+| F11 | **Hardening, deploy & docs** ✅ | helmet headers, CORS allow-list (trailing-slash safe, preview wildcards), per-IP rate limits (AI 20/min), trust proxy, service info route, `ENABLE_SIMULATION` switch, runtime migrations on deploy (`db:migrate:deploy`), Railway runbook; OpenAPI 3.1 generated from the Zod validators (+ live examples), Redoc at `/api/v1/docs`, Postman collection + environments (Newman-verified), `docs/API.md` frontend/agent guide | `GET /`, `GET /api/v1`, `GET /api/v1/openapi.json`, `GET /api/v1/docs` |
 
 ### Synthetic scenarios (F2)
 
