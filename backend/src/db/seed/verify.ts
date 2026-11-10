@@ -10,7 +10,7 @@ import { loadDetectionSignals } from '../../modules/detect/detect.repository.js'
 import { executeDetection, type RunSummary } from '../../modules/detect/detect.service.js';
 import { summarizeUsage } from '../../modules/detect/scoring.js';
 import { applyApprove } from '../../modules/act/act.service.js';
-import { isNumericallyGrounded } from '../../modules/copilot/copilot.llm.js';
+import { isNumericallyGrounded, keepsAllNumbers } from '../../modules/copilot/copilot.llm.js';
 import { ask as askCopilot } from '../../modules/copilot/copilot.service.js';
 import {
   applyAdvance,
@@ -504,6 +504,20 @@ async function main(): Promise<void> {
     [
       isNumericallyGrounded('The pilot recovered 90% of customers.', 'Treated 2 of 6 (33%).', []),
       isNumericallyGrounded('Two of six (33%) recovered.', 'Treated 2 of 6 (33%).', []),
+    ],
+    [false, true],
+  );
+  check(
+    'copilot completeness guard rejects dropped facts',
+    [
+      keepsAllNumbers(
+        'Affordability is the likely reason.',
+        'Affordability at 86%, so Daily Mini 600 MB for $0.60 is suggested.',
+      ),
+      keepsAllNumbers(
+        'Affordability (86%): suggest Daily Mini 600 MB for $0.60.',
+        'Affordability at 86%, so Daily Mini 600 MB for $0.60 is suggested.',
+      ),
     ],
     [false, true],
   );
