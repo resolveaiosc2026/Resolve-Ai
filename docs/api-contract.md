@@ -826,11 +826,11 @@ Average weekly GB across open cases for the 12 detection weeks: `weeks[] { weekS
 
 Plain-language questions answered **only from Resolve AI's own aggregates**: the same figures the dashboard shows. Each answer lists its facts with provenance. The pipeline is a port of the prototype's `copilot.ts`:
 
-| Step      | How                                               | LLM role                                                                                                                                                 |
-| --------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Route  | Keyword rules (same order as the prototype)       | Only when the keywords find nothing: picks one intent from the fixed list below (Zod-validated). A customer it names must exist, or the Copilot refuses  |
-| 2. Facts  | Detect, Understand, Recommend and Report services | None                                                                                                                                                     |
-| 3. Answer | Deterministic template (prototype wording)        | Optional rephrasing. **Rejected if it contains any number that isn't in the facts or the template** (numeric grounding guard); the template is then used |
+| Step      | How                                               | LLM role                                                                                                                                                                                                      |
+| --------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Route  | Keyword rules (same order as the prototype)       | Only when the keywords find nothing: picks one intent from the fixed list below (Zod-validated). A customer it names must exist, or the Copilot refuses                                                       |
+| 2. Facts  | Detect, Understand, Recommend and Report services | None                                                                                                                                                                                                          |
+| 3. Answer | Deterministic template (prototype wording)        | Optional rephrasing. **Rejected if it adds any number that isn't in the facts or the template, or drops any number from the template** (numeric grounding and completeness guards); the template is then used |
 
 **Intents:**
 
