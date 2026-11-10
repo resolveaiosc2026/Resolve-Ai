@@ -39,6 +39,7 @@ const ALL_TABLES: PgTable[] = [
   schema.recommendations,
   schema.interventions,
   schema.outcomes,
+  schema.aiConversations,
 ];
 
 function buildSeed() {

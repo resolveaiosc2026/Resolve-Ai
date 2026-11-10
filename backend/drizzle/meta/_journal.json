@@ -22,6 +22,13 @@
       "when": 1794248792456,
       "tag": "0002_loop_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794313679515,
+      "tag": "0003_copilot_conversations",
+      "breakpoints": true
     }
   ]
 }

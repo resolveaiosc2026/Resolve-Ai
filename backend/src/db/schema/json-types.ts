@@ -46,3 +46,6 @@ export type PopulationSummary = {
   approvalsThisWeek: number;
   simulated: true;
 };
+
+/** A fact behind a Copilot answer, with where it came from. */
+export type CopilotFact = { label: string; value: string; source: string };

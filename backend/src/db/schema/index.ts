@@ -4,4 +4,5 @@ export * from './customers.js';
 export * from './detect.js';
 export * from './understand.js';
 export * from './act.js';
+export * from './copilot.js';
 export type * from './json-types.js';
