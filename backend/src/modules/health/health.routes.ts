@@ -15,6 +15,7 @@ healthRouter.get('/', async (_req, res) => {
       status: healthy ? 'ok' : 'degraded',
       service: 'resolve-ai-backend',
       environment: env.NODE_ENV,
+      simulation: env.ENABLE_SIMULATION ? 'on' : 'off',
       uptimeSeconds: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
       database,

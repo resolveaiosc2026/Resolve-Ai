@@ -47,5 +47,6 @@ apiRouter.use('/reports', reportsRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/copilot', copilotRouter);
 
-// Demo only: plays Orange's channel and the post-intervention window. Never in production.
-if (env.NODE_ENV !== 'production') apiRouter.use('/simulation', simulationRouter);
+// Demo only: plays Orange's channel and the post-intervention window.
+// Off in production unless ENABLE_SIMULATION=true (hosted demo).
+if (env.ENABLE_SIMULATION) apiRouter.use('/simulation', simulationRouter);
