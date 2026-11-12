@@ -585,7 +585,7 @@ export function wilson(k: number, n: number): { low: number; high: number } {
   const p = k / n;
   const d = 1 + (z * z) / n;
   const centre = (p + (z * z) / (2 * n)) / d;
-  const margin = (z * Math.sqrt((p * (1 - p) + (z * z) / (4 * n))) / n) / d;
+  const margin = (z * Math.sqrt((p * (1 - p) + (z * z) / (4 * n)) / n)) / d;
   return { low: round(Math.max(0, centre - margin), 3), high: round(Math.min(1, centre + margin), 3) };
 }
 
