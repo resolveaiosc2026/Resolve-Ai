@@ -1,29 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { PageHead } from "../../components/Shell";
+import { Loaded } from "../../components/ApiStatus";
 import { BaselineSparkline, StackedBand } from "../../components/Charts";
 import { Bar, Card, ConfidenceChip, Kpi, StatusChip } from "../../components/ui";
 import { useWorkbench } from "../../components/Workbench";
-import {
-  classifyReason,
-  confidenceBand,
-  detectSummary,
-  priorityQueue,
-  recommendAction,
-  usageView,
-} from "../../lib/analytics";
-import { datasets } from "../../lib/datasets";
+import { confidenceBand } from "../../lib/analytics";
+import { getDetectSummary, getQueue, getReasons, getRecommendation } from "../../lib/api/endpoints";
+import { useApi } from "../../lib/api/useApi";
 
 export default function DetectPage() {
+  const { caseId, run } = useWorkbench();
+  const queue = useApi(getQueue, "queue");
+  const summary = useApi(getDetectSummary, "summary");
+  const selectedId =
+    queue.data?.find((r) => r.customer.id === caseId)?.customer.id ?? queue.data?.[0]?.customer.id ?? caseId;
+  const classification = useApi(() => getReasons(selectedId), `reasons:${selectedId}`);
+  const recommendation = useApi(() => getRecommendation(selectedId), `rec:${selectedId}`);
+
+  return (
+    <Loaded queries={[queue, summary, classification, recommendation]}>
+      {() => (
+        <DetectView
+          all={queue.data!}
+          summary={summary.data!}
+          classification={classification.data!}
+          recommendation={recommendation.data!}
+          splitAt={run?.baselineWeeks ?? 8}
+        />
+      )}
+    </Loaded>
+  );
+}
+
+function DetectView({
+  all,
+  summary,
+  classification,
+  recommendation,
+  splitAt,
+}: {
+  all: Awaited<ReturnType<typeof getQueue>>;
+  summary: Awaited<ReturnType<typeof getDetectSummary>>;
+  classification: Awaited<ReturnType<typeof getReasons>>;
+  recommendation: Awaited<ReturnType<typeof getRecommendation>>;
+  splitAt: number;
+}) {
   const { caseId, selectCase } = useWorkbench();
   const [segment, setSegment] = useState("all");
   const [region, setRegion] = useState("all");
   const [status, setStatus] = useState("all");
-
-  const all = useMemo(() => priorityQueue(datasets), []);
-  const summary = useMemo(() => detectSummary(datasets), []);
 
   const rows = all.filter(
     (r) =>
@@ -33,8 +61,6 @@ export default function DetectPage() {
   );
 
   const selected = all.find((r) => r.customer.id === caseId) ?? all[0];
-  const classification = classifyReason(datasets, selected.customer.id);
-  const recommendation = recommendAction(datasets, selected.customer.id, classification);
   const minDrop = Math.min(...all.map((r) => -r.usage.changePct));
 
   const segments = [...new Set(all.map((r) => r.customer.segment))].sort();
@@ -54,7 +80,7 @@ export default function DetectPage() {
       />
 
       <div className="kpi-row">
-        <Kpi label="Flagged subscribers" value={summary.flagged.toLocaleString()} foot={`of ${datasets.run.subscribers_scored.toLocaleString()} scored`} />
+        <Kpi label="Flagged subscribers" value={summary.flagged.toLocaleString()} foot={`of ${summary.subscribersScored.toLocaleString()} scored`} />
         <Kpi label="High risk" value={summary.bands[0].count.toLocaleString()} variant="inverted" foot="priority score 75 and above" />
         <Kpi label="Minimum days inactive" value={summary.minimumDaysInactive} foot="to enter this queue" />
         <Kpi label="Actions awaiting approval" value={summary.actionsAwaitingApproval} foot="nothing sends until a human signs off" />
@@ -87,6 +113,7 @@ export default function DetectPage() {
                   { value: "new", label: "New" },
                   { value: "awaiting_reply", label: "Awaiting reply" },
                   { value: "unclassified", label: "Needs review" },
+                  { value: "ready", label: "Ready for action" },
                   { value: "action_done", label: "Action sent" },
                 ]}
               />
@@ -167,7 +194,7 @@ export default function DetectPage() {
                 weeks={selected.usage.weeks}
                 bandLow={selected.usage.bandLowGb}
                 bandHigh={selected.usage.bandHighGb}
-                splitAt={datasets.activity[selected.customer.id].baseline_window_weeks}
+                splitAt={splitAt}
                 changePct={selected.usage.changePct}
               />
               <div className="kv">

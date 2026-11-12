@@ -2,18 +2,35 @@
 
 import Link from "next/link";
 import { PageHead } from "../../components/Shell";
+import { Loaded } from "../../components/ApiStatus";
 import { Card, ConfidenceChip, Tick } from "../../components/ui";
 import { useWorkbench } from "../../components/Workbench";
-import { classifyReason, confidenceBand, priorityQueue, recommendAction } from "../../lib/analytics";
-import { datasets } from "../../lib/datasets";
+import { confidenceBand } from "../../lib/analytics";
+import type { ClassificationResult } from "../../lib/api/adapters";
+import { getCustomer, getReasons, getRecommendation } from "../../lib/api/endpoints";
+import { useApi } from "../../lib/api/useApi";
+import type { QueueRow, RecommendationView } from "../../lib/types";
 
 export default function RecommendPage() {
   const { caseId } = useWorkbench();
-  const queue = priorityQueue(datasets);
-  const row = queue.find((r) => r.customer.id === caseId) ?? queue[0];
+  const row = useApi(() => getCustomer(caseId), `customer:${caseId}`);
+  const cls = useApi(() => getReasons(caseId), `reasons:${caseId}`);
+  const rec = useApi(() => getRecommendation(caseId), `rec:${caseId}`);
+  return (
+    <Loaded queries={[row, cls, rec]}>
+      {() => <RecommendView row={row.data!} cls={cls.data!} rec={rec.data!} />}
+    </Loaded>
+  );
+}
+
+/** Sample size behind a campaign-history row, e.g. "62% (n=214)" → 214. */
+function historyN(rec: RecommendationView, actionName: string, reasonLabel: string | undefined): number {
+  const h = rec.history.find((x) => x.action === actionName && x.reason === reasonLabel);
+  return Number(/n=(\d+)/.exec(h?.outcome ?? "")?.[1] ?? 0);
+}
+
+function RecommendView({ row, cls, rec }: { row: QueueRow; cls: ClassificationResult; rec: RecommendationView }) {
   const customer = row.customer;
-  const cls = classifyReason(datasets, customer.id);
-  const rec = recommendAction(datasets, customer.id, cls);
   const best = rec.recommended;
 
   return (
@@ -70,7 +87,7 @@ export default function RecommendPage() {
                   </div>
                   <div className="meta">
                     From campaign history (synthetic), n=
-                    {datasets.campaigns.find((c) => c.action_id === best.action.id && c.reason === cls.primary?.id)?.n ?? 0}
+                    {historyN(rec, best.action.name, cls.primary?.label)}
                   </div>
                 </div>
                 <div className="card" style={{ padding: 16 }}>

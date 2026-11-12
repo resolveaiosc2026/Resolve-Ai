@@ -1,24 +1,89 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { PageHead } from "../../components/Shell";
 import { PrePostChart } from "../../components/Charts";
 import { Card } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { ActionError, Loaded, SimulationOffNote } from "../../components/ApiStatus";
 import { useWorkbench } from "../../components/Workbench";
-import { formatStamp, measureView, priorityQueue, round } from "../../lib/analytics";
-import { MEASURE_EXAMPLE, datasets } from "../../lib/datasets";
+import { formatStamp, round } from "../../lib/analytics";
+import { ANALYST, MEASURE_EXAMPLE } from "../../lib/datasets";
+import {
+  advanceIntervention,
+  getCustomer,
+  getInterventions,
+  getMeasure,
+  getReport,
+  recordOutcome,
+  type Scenario,
+} from "../../lib/api/endpoints";
+import type { ApiInterventionRow } from "../../lib/api/types";
+import { useAction, useApi } from "../../lib/api/useApi";
+import type { MeasureView, QueueRow } from "../../lib/types";
+
+const SCENARIOS: { value: "" | Scenario; label: string }[] = [
+  { value: "", label: "Scripted (from predicted recovery)" },
+  { value: "recover", label: "Customer recovers" },
+  { value: "partial", label: "Partial recovery" },
+  { value: "no_change", label: "No change" },
+  { value: "decline", label: "Further decline" },
+];
 
 export default function MeasurePage() {
-  const { approvals } = useWorkbench();
-  const executed = datasets.interventions.map((i) => i.case_id);
-  const [caseId, setCaseId] = useState(MEASURE_EXAMPLE);
-  const m = useMemo(() => measureView(datasets, caseId), [caseId]);
-  const queue = priorityQueue(datasets);
-  const customer = queue.find((r) => r.customer.id === caseId)?.customer ?? queue[0].customer;
-  const weeks = datasets.activity[caseId].weeks;
-  const pending = approvals[caseId];
+  const { caseId: workbenchCase } = useWorkbench();
+  const interventions = useApi(getInterventions, "interventions");
+  const [picked, setPicked] = useState<string | null>(null);
+
+  const executed = [...new Set((interventions.data ?? []).map((i) => i.customerId))];
+  const caseId =
+    picked ??
+    (executed.includes(workbenchCase) ? workbenchCase : executed.includes(MEASURE_EXAMPLE) ? MEASURE_EXAMPLE : executed[0] ?? workbenchCase);
+
+  const m = useApi(() => getMeasure(caseId), `measure:${caseId}`);
+  const row = useApi(() => getCustomer(caseId), `customer:${caseId}`);
+  const report = useApi(getReport, "report");
+
+  return (
+    <Loaded queries={[interventions, m, row, report]}>
+      {() => (
+        <MeasureScreen
+          caseId={caseId}
+          onPick={setPicked}
+          executed={executed}
+          workbenchCase={workbenchCase}
+          m={m.data!}
+          row={row.data!}
+          intervention={interventions.data!.find((i) => i.customerId === caseId) ?? null}
+          treated={report.data!.treated}
+        />
+      )}
+    </Loaded>
+  );
+}
+
+function MeasureScreen({
+  caseId,
+  onPick,
+  executed,
+  workbenchCase,
+  m,
+  row,
+  intervention,
+  treated,
+}: {
+  caseId: string;
+  onPick: (id: string) => void;
+  executed: string[];
+  workbenchCase: string;
+  m: MeasureView;
+  row: QueueRow;
+  intervention: ApiInterventionRow | null;
+  treated: { recovered: number; n: number };
+}) {
+  const customer = row.customer;
+  const weeks = row.usage.weeks;
 
   const ratio = m.outcome ? m.outcome.activations_after / m.outcome.baseline_activations : 1;
   const pre = weeks.map((w) => ({ label: w.week_start, value: w.gb }));
@@ -36,13 +101,15 @@ export default function MeasurePage() {
         actions={
           <label className="field" style={{ margin: 0, minWidth: 220 }}>
             <span className="sr-only">Case</span>
-            <select value={caseId} onChange={(e) => setCaseId(e.target.value)}>
+            <select value={caseId} onChange={(e) => onPick(e.target.value)}>
               {executed.map((id) => (
                 <option key={id} value={id}>
-                  {id} — action executed
+                  {id} — action approved
                 </option>
               ))}
-              <option value={queue[0].customer.id}>{queue[0].customer.id} — no action yet</option>
+              {executed.includes(workbenchCase) ? null : (
+                <option value={workbenchCase}>{workbenchCase} — no action yet</option>
+              )}
             </select>
           </label>
         }
@@ -63,13 +130,6 @@ export default function MeasurePage() {
               </div>
             ))}
           </div>
-          {pending ? (
-            <p className="meta" style={{ marginTop: 12 }}>
-              Your sign-off for this case is held in this browser ({pending.decision},{" "}
-              {formatStamp(pending.at.slice(0, 16))}). A real deployment would write it to the
-              case history.
-            </p>
-          ) : null}
         </Card>
 
         <aside className="detail">
@@ -88,6 +148,8 @@ export default function MeasurePage() {
                 <span>4 weeks after</span>
               </div>
             </div>
+
+            {intervention && !intervention.hasOutcome ? <MeasureControls intervention={intervention} /> : null}
 
             {m.outcome ? (
               <div className="highlight">
@@ -109,8 +171,9 @@ export default function MeasurePage() {
               <div className="note" data-tone="neutral">
                 <div className="title">Nothing to measure yet</div>
                 <p className="body-sm" style={{ marginTop: 6 }}>
-                  No action has been executed on this case, so there is no before-and-after. The
-                  30-day window only starts once a human signs something off.
+                  {intervention
+                    ? `${intervention.reference} was approved and handed off. The verdict appears once the 30-day window has closed and the outcome is recorded.`
+                    : "No action has been approved on this case, so there is no before-and-after. The 30-day window only starts once a human signs something off."}
                 </p>
               </div>
             )}
@@ -122,7 +185,7 @@ export default function MeasurePage() {
               <div className="kv">
                 <span className="muted">Treated (this pilot)</span>
                 <span className="num">
-                  {datasets.outcomes.filter((o) => o.recovered).length}/{datasets.outcomes.length} recovered
+                  {treated.recovered}/{treated.n} recovered
                 </span>
               </div>
               <div className="kv">
@@ -186,5 +249,72 @@ export default function MeasurePage() {
         </Card>
       </div>
     </>
+  );
+}
+
+/** Demo controls for an approved intervention that has no outcome yet. */
+function MeasureControls({ intervention }: { intervention: ApiInterventionRow }) {
+  const { simulationOn } = useWorkbench();
+  const action = useAction();
+  const [scenario, setScenario] = useState<"" | Scenario>("");
+  const simulated = Boolean(intervention.simulatedThrough);
+
+  return (
+    <div className="card" style={{ padding: 16 }}>
+      <div className="card-title" style={{ marginBottom: 8 }}>
+        {intervention.reference} · {intervention.action.shortName}
+      </div>
+      <p className="body-sm muted">
+        Handed off via {intervention.channel} ({intervention.status.replace("_", " ")}).{" "}
+        {simulated
+          ? "The 30-day window has been simulated. Record the outcome to compute the verdict."
+          : "The outcome can only be recorded after the 30-day window."}
+      </p>
+      {!simulated ? (
+        simulationOn ? (
+          <>
+            <div className="form-block" style={{ marginTop: 12 }}>
+              <label className="field" htmlFor="scenario">
+                Demo: how the customer behaves next
+              </label>
+              <select id="scenario" value={scenario} onChange={(e) => setScenario(e.target.value as "" | Scenario)}>
+                {SCENARIOS.map((x) => (
+                  <option key={x.value} value={x.value}>
+                    {x.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="btn-row" style={{ marginTop: 12 }}>
+              <button
+                className="btn"
+                data-variant="primary"
+                type="button"
+                disabled={action.pending}
+                onClick={() => action.run(() => advanceIntervention(intervention.reference, scenario || undefined))}
+              >
+                {action.pending ? "Simulating…" : "Simulate the next 30 days"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <SimulationOffNote what="Simulating the 30-day window" />
+        )
+      ) : null}
+      {simulated ? (
+        <div className="btn-row" style={{ marginTop: 12 }}>
+          <button
+            className="btn"
+            data-variant="primary"
+            type="button"
+            disabled={action.pending}
+            onClick={() => action.run(() => recordOutcome(intervention.reference, ANALYST))}
+          >
+            {action.pending ? "Measuring…" : "Record the outcome"}
+          </button>
+        </div>
+      ) : null}
+      <ActionError error={action.error} />
+    </div>
   );
 }

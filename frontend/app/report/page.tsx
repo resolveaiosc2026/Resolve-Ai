@@ -1,23 +1,52 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { PageHead } from "../../components/Shell";
 import { Bar, Card, Kpi } from "../../components/ui";
-import { datasets } from "../../lib/datasets";
-import { formatStamp, reportView } from "../../lib/analytics";
+import { ActionError, Loaded } from "../../components/ApiStatus";
+import { formatStamp } from "../../lib/analytics";
+import { ANALYST } from "../../lib/datasets";
+import type { ReportView } from "../../lib/api/adapters";
+import { correctReason, getReasons, getReport } from "../../lib/api/endpoints";
+import { useAction, useApi } from "../../lib/api/useApi";
+import type { ReasonId } from "../../lib/types";
+
+const REASON_LABELS: Record<ReasonId, string> = {
+  affordability: "Affordability",
+  reduced_need: "Reduced need",
+  competitor: "Competitor",
+  network_quality: "Network quality",
+  activation_difficulty: "Activation difficulty",
+  unknown: "Unknown",
+};
 
 export default function ReportPage() {
-  const r = useMemo(() => reportView(datasets), []);
-  const [logged, setLogged] = useState<Record<string, "agree" | "disagree">>({});
+  const report = useApi(getReport, "report");
+  return <Loaded queries={[report]}>{() => <ReportScreen r={report.data!} />}</Loaded>;
+}
+
+function ReportScreen({ r }: { r: ReportView }) {
   const review = r.agreement.rows[r.agreement.rows.length - 1];
-  const reviewVote = review ? logged[review.case_id] : undefined;
+  const action = useAction();
+  const [vote, setVote] = useState<"agree" | "disagree" | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [other, setOther] = useState<ReasonId>("reduced_need");
+
+  /** Record the analyst's verdict on the model's reason via PATCH /reasons/:classificationId. */
+  const submit = (reasonId: ReasonId, label: string) =>
+    action.run(async () => {
+      const cls = await getReasons(review.case_id);
+      if (!cls.classificationId) throw new Error(`${review.case_id} has no classification to review.`);
+      await correctReason(cls.classificationId, reasonId, ANALYST);
+      setSaved(label);
+    });
 
   return (
     <>
       <PageHead
         stage="Stage 6 · Report"
         title="Retention pilot performance"
-        sub="What the pilot found, how it was decided, and how far to trust it. Every number below is computed from the synthetic datasets in /data."
+        sub="What the pilot found, how it was decided, and how far to trust it. Every number below is computed by the Resolve AI API from the synthetic pilot data."
         actions={
           <button className="btn" data-variant="primary" onClick={() => window.print()}>
             Print or save as PDF
@@ -128,32 +157,65 @@ export default function ReportPage() {
               <p className="body-lg">&ldquo;{review.verbatim}&rdquo;</p>
               <div className="row-between" style={{ marginTop: 12 }}>
                 <span className="body-sm">
-                  Labelled <span className="title">{review.analyst_reason === "affordability" ? "Affordability" : review.analyst_reason}</span>
+                  Labelled <span className="title">{REASON_LABELS[review.ai_reason] ?? review.ai_reason}</span>
                   {" "}by the model. Is that right?
                 </span>
                 <span className="btn-row">
                   <button
                     className="btn"
-                    data-selected={reviewVote === "agree"}
-                    onClick={() => setLogged((p) => ({ ...p, [review.case_id]: "agree" }))}
+                    data-selected={vote === "agree"}
+                    disabled={action.pending}
+                    onClick={() => {
+                      setVote("agree");
+                      void submit(review.ai_reason, "agree");
+                    }}
                   >
                     Agree
                   </button>
                   <button
                     className="btn"
-                    data-selected={reviewVote === "disagree"}
-                    onClick={() => setLogged((p) => ({ ...p, [review.case_id]: "disagree" }))}
+                    data-selected={vote === "disagree"}
+                    disabled={action.pending}
+                    onClick={() => {
+                      setVote("disagree");
+                      setSaved(null);
+                    }}
                   >
                     Disagree
                   </button>
                 </span>
               </div>
-              {reviewVote ? (
+              {vote === "disagree" && !saved ? (
+                <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  <label className="field" style={{ margin: 0 }}>
+                    <span className="sr-only">Correct reason</span>
+                    <select value={other} onChange={(e) => setOther(e.target.value as ReasonId)}>
+                      {(Object.keys(REASON_LABELS) as ReasonId[])
+                        .filter((id) => id !== review.ai_reason)
+                        .map((id) => (
+                          <option key={id} value={id}>
+                            {REASON_LABELS[id]}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <button
+                    className="btn"
+                    data-variant="primary"
+                    disabled={action.pending}
+                    onClick={() => void submit(other, `corrected to ${REASON_LABELS[other]}`)}
+                  >
+                    {action.pending ? "Saving…" : "Save correction"}
+                  </button>
+                </div>
+              ) : null}
+              {saved ? (
                 <p className="meta" style={{ marginTop: 10 }}>
-                  Logged in this browser as &ldquo;{reviewVote}&rdquo;. A real deployment writes
-                  this to the case history and feeds it back into evaluation.
+                  Recorded as &ldquo;{saved}&rdquo; against {ANALYST}. The agreement figures above
+                  update from the case history.
                 </p>
               ) : null}
+              <ActionError error={action.error} />
             </div>
           ) : null}
 

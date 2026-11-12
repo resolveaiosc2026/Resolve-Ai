@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { datasets } from "../lib/datasets";
+import { ApiBanner } from "./ApiStatus";
+import { useWorkbench } from "./Workbench";
+import { ANALYST } from "../lib/datasets";
+import { getDetectSummary } from "../lib/api/endpoints";
+import { useApi } from "../lib/api/useApi";
 
 export const STAGES = [
   { n: 1, key: "detect", label: "Detect", href: "/detect" },
@@ -25,7 +29,8 @@ const NAV: { group: string; items: readonly NavItem[] }[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const activeIndex = STAGES.findIndex((s) => pathname.startsWith(s.href));
-  const run = datasets.run;
+  const { simulationOn, health } = useWorkbench();
+  const summary = useApi(getDetectSummary, "summary").data;
 
   return (
     <div className="app">
@@ -66,12 +71,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="main">
         <header className="topbar">
           <div className="topbar-left num">
-            Detection run {run.run_id} · {run.subscribers_scored.toLocaleString()} subscribers
-            scored · {run.pilot_sample_size} cases in review
+            {summary
+              ? `Detection run ${summary.runId} · ${summary.subscribersScored.toLocaleString()} subscribers scored · ${summary.pilotSample} cases in review`
+              : "Connecting to the Resolve AI API…"}
           </div>
           <div className="topbar-right">
+            {health?.reachable ? (
+              <span className="tag-synthetic" title="Data is read from and written to the Resolve AI API">
+                Live API{simulationOn ? " · simulation on" : ""}
+              </span>
+            ) : null}
             <span className="tag-synthetic">Synthetic data — pilot demo</span>
-            <span className="avatar" title="analyst.hui">
+            <span className="avatar" title={ANALYST}>
               AH
             </span>
           </div>
@@ -91,7 +102,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <div className="page">{children}</div>
+        <div className="page">
+          <ApiBanner />
+          {children}
+        </div>
       </div>
     </div>
   );

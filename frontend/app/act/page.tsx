@@ -1,52 +1,84 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { PageHead } from "../../components/Shell";
 import { Card, ConfidenceChip } from "../../components/ui";
+import { ActionError, Loaded } from "../../components/ApiStatus";
 import { useWorkbench } from "../../components/Workbench";
+import { confidenceBand } from "../../lib/analytics";
+import { ANALYST } from "../../lib/datasets";
+import type { ClassificationResult } from "../../lib/api/adapters";
+import { DELIVERY_CHANNELS, channelId } from "../../lib/api/channels";
 import {
-  classifyReason,
-  confidenceBand,
-  formatStamp,
-  priorityQueue,
-  recommendAction,
-} from "../../lib/analytics";
-import { ANALYST, datasets } from "../../lib/datasets";
+  approveAction,
+  ensurePendingRecommendation,
+  getQueue,
+  getReasons,
+  getRecommendation,
+  rejectAction,
+} from "../../lib/api/endpoints";
+import { useAction, useApi } from "../../lib/api/useApi";
 import type { Action } from "../../lib/types";
 
-const CHANNELS = ["Orange SMS", "USSD prompt", "Call centre"];
 const WINDOWS = ["Today 16:00–18:00", "Tomorrow 09:00–11:00", "Next care shift"];
 
+type Queue = Awaited<ReturnType<typeof getQueue>>;
+type Rec = Awaited<ReturnType<typeof getRecommendation>>;
+type Outcome = { decision: "approved" | "changed" | "review"; reference?: string; actionName?: string };
+
 export default function ActPage() {
-  const { caseId, approvals, record } = useWorkbench();
-  const queue = useMemo(() => priorityQueue(datasets), []);
+  const { caseId } = useWorkbench();
+  const queue = useApi(getQueue, "queue");
+  const cls = useApi(() => getReasons(caseId), `reasons:${caseId}`);
+  const rec = useApi(() => getRecommendation(caseId), `rec:${caseId}`);
+  return (
+    <Loaded queries={[queue, cls, rec]}>
+      {() => <ActView key={caseId} queue={queue.data!} cls={cls.data!} rec={rec.data!} />}
+    </Loaded>
+  );
+}
+
+function ActView({ queue, cls, rec }: { queue: Queue; cls: ClassificationResult; rec: Rec }) {
+  const { caseId } = useWorkbench();
   const row = queue.find((r) => r.customer.id === caseId) ?? queue[0];
   const customer = row.customer;
-  const cls = classifyReason(datasets, customer.id);
-  const rec = recommendAction(datasets, customer.id, cls);
+  const action = useAction();
 
   const [picked, setPicked] = useState<Action | null>(rec.recommended?.action ?? null);
-  const [channel, setChannel] = useState(rec.recommended?.action.channel ?? CHANNELS[0]);
+  const [channel, setChannel] = useState<string>(rec.recommended?.action.channel ?? DELIVERY_CHANNELS[0]);
   const [window_, setWindow] = useState(WINDOWS[0]);
   const [note, setNote] = useState("");
   const [showAlternatives, setShowAlternatives] = useState(false);
+  const [done, setDone] = useState<Outcome | null>(null);
 
-  const saved = approvals[customer.id];
   const chosen = picked ?? rec.recommended?.action ?? null;
-  const candidate = rec.candidates.find((c) => c.action.id === chosen?.id) ?? null;
   const offChannel = chosen ? channel !== chosen.channel : false;
+  const alreadySignedOff = rec.current?.status === "approved" || row.status === "action_done";
+  const canDecide = Boolean(chosen) && !alreadySignedOff && !action.pending && !done;
 
-  const decide = (decision: "approved" | "changed" | "review") => {
+  const decide = async (decision: "approved" | "review") => {
     if (!chosen) return;
-    record({
-      caseId: customer.id,
-      actionId: chosen.id,
-      channel,
-      window: window_,
-      note: note.trim() || (decision === "approved" ? "Approved as recommended." : "Sent to human review."),
-      at: new Date().toISOString(),
-      decision,
+    await action.run(async () => {
+      const recommendationId = await ensurePendingRecommendation(customer.id, rec.current, ANALYST);
+      if (decision === "review") {
+        await rejectAction(recommendationId, ANALYST, note.trim() || "Sent to human review.");
+        setDone({ decision: "review" });
+        return;
+      }
+      const changed = chosen.id !== rec.recommended?.action.id;
+      const result = await approveAction(recommendationId, {
+        reviewerName: ANALYST,
+        actionId: changed ? chosen.id : undefined,
+        channel: channelId(channel),
+        window: window_,
+        note: note.trim() || undefined,
+      });
+      setDone({
+        decision: changed ? "changed" : "approved",
+        reference: result.intervention.reference,
+        actionName: chosen.name,
+      });
     });
   };
 
@@ -55,7 +87,7 @@ export default function ActPage() {
       <PageHead
         stage="Stage 4 · Act"
         title="Sign off on this action"
-        sub="Resolve AI prepares the message and the delivery window. A named analyst sends it. Approvals in this demo are stored in your browser only — no message leaves the workbench."
+        sub="Resolve AI prepares the message and the delivery window. A named analyst approves it, and only then is it handed off to Orange’s channel. Every decision is recorded by the Resolve AI API."
         actions={
           <span className="tag-synthetic">
             Human approval required · {ANALYST}
@@ -78,25 +110,49 @@ export default function ActPage() {
                       {r.customer.segment} · {r.reasonLabel}
                     </div>
                   </div>
-                  <span className="meta">{approvals[r.customer.id] ? "Signed off" : "Awaiting sign-off"}</span>
+                  <span className="meta">{r.status === "action_done" ? "Signed off" : "Awaiting sign-off"}</span>
                 </div>
               ))}
             </div>
           </Card>
 
-          {saved ? (
+          {done ? (
             <div className="note">
-              <div className="title">Recorded in this browser</div>
+              <div className="title">Recorded by the Resolve AI API</div>
               <p className="body-sm" style={{ marginTop: 6 }}>
-                {saved.decision === "approved"
-                  ? `Approved: ${datasets.actions.find((a) => a.id === saved.actionId)?.name} via ${saved.channel}, ${saved.window}.`
-                  : saved.decision === "changed"
-                    ? `Action changed to ${datasets.actions.find((a) => a.id === saved.actionId)?.name} and approved.`
-                    : "Sent to human review. No action will be prepared until the review closes."}
+                {done.decision === "review"
+                  ? "Sent to human review. The case returns to the queue as needing review; no action will be prepared until the reason is checked."
+                  : `${done.decision === "changed" ? "Action changed and approved" : "Approved"}: ${done.actionName} via ${channel}, ${window_}. Handed off to Orange as ${done.reference}.`}
                 <br />
-                Logged against {ANALYST} at {formatStamp(saved.at.slice(0, 16))}.{" "}
+                Logged against {ANALYST}.{" "}
+                {done.decision === "review" ? (
+                  <Link href="/understand" style={{ textDecoration: "underline" }}>
+                    Review the reason
+                  </Link>
+                ) : (
+                  <Link href="/measure" style={{ textDecoration: "underline" }}>
+                    Open the action record
+                  </Link>
+                )}
+              </p>
+            </div>
+          ) : alreadySignedOff ? (
+            <div className="note" data-tone="neutral">
+              <div className="title">Already signed off</div>
+              <p className="body-sm" style={{ marginTop: 6 }}>
+                This case already has an approved action.{" "}
                 <Link href="/measure" style={{ textDecoration: "underline" }}>
                   Open the action record
+                </Link>
+              </p>
+            </div>
+          ) : !rec.recommended ? (
+            <div className="note" data-tone="neutral">
+              <div className="title">Nothing to sign off yet</div>
+              <p className="body-sm" style={{ marginTop: 6 }}>
+                A recommendation needs a classified reason.{" "}
+                <Link href="/understand" style={{ textDecoration: "underline" }}>
+                  Go to Understand
                 </Link>
               </p>
             </div>
@@ -166,7 +222,7 @@ export default function ActPage() {
             <div className="form-block">
               <label className="field">Channel</label>
               <div className="btn-group">
-                {CHANNELS.map((c) => (
+                {DELIVERY_CHANNELS.map((c) => (
                   <button
                     key={c}
                     type="button"
@@ -236,17 +292,18 @@ export default function ActPage() {
             You decide. Resolve AI will not act without approval.
           </div>
           <div className="decision-sub">
-            Every action is logged against your name. Demo approvals stay in this browser.
+            Every action is logged against your name and recorded by the Resolve AI API.
           </div>
+          <ActionError error={action.error} />
         </div>
         <div className="btn-row">
-          <button className="btn" data-variant="primary" data-on-dark="false" onClick={() => decide("approved")} disabled={!chosen}>
-            Approve action
+          <button className="btn" data-variant="primary" data-on-dark="false" onClick={() => void decide("approved")} disabled={!canDecide}>
+            {action.pending ? "Recording…" : "Approve action"}
           </button>
-          <button className="btn" data-on-dark="true" onClick={() => setShowAlternatives(true)}>
+          <button className="btn" data-on-dark="true" onClick={() => setShowAlternatives(true)} disabled={!canDecide}>
             Change action
           </button>
-          <button className="btn" data-on-dark="true" onClick={() => decide("review")} disabled={!chosen}>
+          <button className="btn" data-on-dark="true" onClick={() => void decide("review")} disabled={!canDecide}>
             Send to human review
           </button>
         </div>
