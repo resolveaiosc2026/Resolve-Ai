@@ -43,7 +43,7 @@ Customer **LR-20417**, a PDP reseller in Sinkor, drops from 6.5 to 2.0 GB of dat
 
 | Folder | Contents | Stack |
 | --- | --- | --- |
-| [`frontend/`](frontend/) | Retention Workbench: one screen per loop step plus Copilot | Next.js, React, TypeScript (Vercel) |
+| [`frontend/`](frontend/) | Retention Workbench: one screen per loop step plus Copilot, reading and writing through the API | Next.js, React, TypeScript (Vercel) |
 | [`backend/`](backend/) | Decision API, about 40 endpoints | Node.js 22, TypeScript, Express 5, PostgreSQL (Neon), Drizzle ORM, Zod, OpenRouter (Railway) |
 | [`docs/`](docs/) | Architecture, data model, decisions, analyses, API guides | |
 
@@ -66,6 +66,8 @@ cd frontend
 npm install
 npm run dev        # http://localhost:3000
 ```
+
+The workbench uses the hosted API by default. To use a local backend, create `frontend/.env.local` with `NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1` (see [`frontend/.env.example`](frontend/.env.example)). Demo-only buttons (simulated reply, simulated 30 days) appear only when the API runs with `ENABLE_SIMULATION=true`.
 
 **Backend** (needs a free [Neon](https://neon.tech) PostgreSQL database; full steps in [`backend/README.md`](backend/README.md))
 
