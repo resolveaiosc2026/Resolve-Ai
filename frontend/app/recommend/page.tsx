@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PageHead } from "../../components/Shell";
+import { RecommendSkeleton } from "../../components/Skeleton";
 import { Loaded } from "../../components/ApiStatus";
 import { Card, ConfidenceChip, Tick } from "../../components/ui";
 import { useWorkbench } from "../../components/Workbench";
@@ -17,7 +18,7 @@ export default function RecommendPage() {
   const cls = useApi(() => getReasons(caseId), `reasons:${caseId}`);
   const rec = useApi(() => getRecommendation(caseId), `rec:${caseId}`);
   return (
-    <Loaded queries={[row, cls, rec]}>
+    <Loaded queries={[row, cls, rec]} skeleton={<RecommendSkeleton />}>
       {() => <RecommendView row={row.data!} cls={cls.data!} rec={rec.data!} />}
     </Loaded>
   );

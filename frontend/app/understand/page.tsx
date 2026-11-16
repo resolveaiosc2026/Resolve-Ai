@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PageHead } from "../../components/Shell";
+import { UnderstandSkeleton } from "../../components/Skeleton";
 import { Bar, Card, ConfidenceChip, Tick } from "../../components/ui";
 import { Icon, REASON_ICONS } from "../../components/Icon";
 import { ActionError, Loaded, SimulationOffNote } from "../../components/ApiStatus";
@@ -41,7 +42,7 @@ export default function UnderstandPage() {
   const interventions = useApi(getInterventions, "interventions");
 
   return (
-    <Loaded queries={[row, cls, interventions]}>
+    <Loaded queries={[row, cls, interventions]} skeleton={<UnderstandSkeleton />}>
       {() => (
         <UnderstandView
           row={row.data!}
@@ -78,7 +79,7 @@ function UnderstandView({
         }
       />
 
-      <div className="workspace" style={{ gridTemplateColumns: "320px minmax(0, 1fr)" }}>
+      <div className="workspace workspace-narrow">
         <div className="stack">
           <Card title="What the customer was asked" note={fb ? formatStamp(fb.asked_at) : undefined}>
             {fb ? (

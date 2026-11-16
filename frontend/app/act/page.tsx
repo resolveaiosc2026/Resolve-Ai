@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PageHead } from "../../components/Shell";
+import { ActSkeleton } from "../../components/Skeleton";
 import { Card, ConfidenceChip } from "../../components/ui";
 import { ActionError, Loaded } from "../../components/ApiStatus";
 import { useWorkbench } from "../../components/Workbench";
@@ -33,7 +34,7 @@ export default function ActPage() {
   const cls = useApi(() => getReasons(caseId), `reasons:${caseId}`);
   const rec = useApi(() => getRecommendation(caseId), `rec:${caseId}`);
   return (
-    <Loaded queries={[queue, cls, rec]}>
+    <Loaded queries={[queue, cls, rec]} skeleton={<ActSkeleton />}>
       {() => <ActView key={caseId} queue={queue.data!} cls={cls.data!} rec={rec.data!} />}
     </Loaded>
   );

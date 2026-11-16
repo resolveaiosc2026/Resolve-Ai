@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PageHead } from "../../components/Shell";
+import { MeasureSkeleton } from "../../components/Skeleton";
 import { PrePostChart } from "../../components/Charts";
 import { Card } from "../../components/ui";
 import { Icon } from "../../components/Icon";
@@ -46,7 +47,7 @@ export default function MeasurePage() {
   const report = useApi(getReport, "report");
 
   return (
-    <Loaded queries={[interventions, m, row, report]}>
+    <Loaded queries={[interventions, m, row, report]} skeleton={<MeasureSkeleton />}>
       {() => (
         <MeasureScreen
           caseId={caseId}

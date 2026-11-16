@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PageHead } from "../../components/Shell";
+import { ReportSkeleton } from "../../components/Skeleton";
 import { Bar, Card, Kpi } from "../../components/ui";
 import { ActionError, Loaded } from "../../components/ApiStatus";
 import { formatStamp } from "../../lib/analytics";
@@ -22,7 +23,7 @@ const REASON_LABELS: Record<ReasonId, string> = {
 
 export default function ReportPage() {
   const report = useApi(getReport, "report");
-  return <Loaded queries={[report]}>{() => <ReportScreen r={report.data!} />}</Loaded>;
+  return <Loaded queries={[report]} skeleton={<ReportSkeleton />}>{() => <ReportScreen r={report.data!} />}</Loaded>;
 }
 
 function ReportScreen({ r }: { r: ReportView }) {

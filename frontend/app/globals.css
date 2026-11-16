@@ -1297,3 +1297,40 @@ select:focus, input:focus, textarea:focus { outline-color: var(--primary); }
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Skeleton loaders ------------------------------------------------------------ */
+.sk {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #ececec 0%, #f6f6f6 50%, #ececec 100%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+.kpi[data-variant="inverted"] .sk { background: #2a2a2a; animation: none; }
+.sk-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.sk-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1.4fr;
+  gap: 16px;
+  align-items: center;
+  height: 52px;
+  border-bottom: 1px solid #ededed;
+}
+@keyframes sk-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+.workspace.workspace-narrow { grid-template-columns: 320px minmax(0, 1fr); }
+@media (max-width: 1180px) {
+  .workspace.workspace-narrow { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .sk-row { grid-template-columns: 1fr 1fr; height: 64px; row-gap: 6px; }
+}

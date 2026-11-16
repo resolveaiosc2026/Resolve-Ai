@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PageHead } from "../../components/Shell";
+import { DetectSkeleton } from "../../components/Skeleton";
 import { Loaded } from "../../components/ApiStatus";
 import { BaselineSparkline, StackedBand } from "../../components/Charts";
 import { Bar, Card, ConfidenceChip, Kpi, StatusChip } from "../../components/ui";
@@ -21,7 +22,7 @@ export default function DetectPage() {
   const recommendation = useApi(() => getRecommendation(selectedId), `rec:${selectedId}`);
 
   return (
-    <Loaded queries={[queue, summary, classification, recommendation]}>
+    <Loaded queries={[queue, summary, classification, recommendation]} skeleton={<DetectSkeleton />}>
       {() => (
         <DetectView
           all={queue.data!}

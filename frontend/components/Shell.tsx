@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { ApiBanner } from "./ApiStatus";
+import { SkLine } from "./Skeleton";
 import { useWorkbench } from "./Workbench";
 import { ANALYST } from "../lib/datasets";
 import { getDetectSummary } from "../lib/api/endpoints";
@@ -73,7 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="topbar-left num">
             {summary
               ? `Detection run ${summary.runId} · ${summary.subscribersScored.toLocaleString()} subscribers scored · ${summary.pilotSample} cases in review`
-              : "Connecting to the Resolve AI API…"}
+              : <SkLine width={340} height={12} />}
           </div>
           <div className="topbar-right">
             {health?.reachable ? (

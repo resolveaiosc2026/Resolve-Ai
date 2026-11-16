@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PageHead } from "../../components/Shell";
 import { Card } from "../../components/ui";
+import { SkChips } from "../../components/Skeleton";
 import { Icon } from "../../components/Icon";
 import { ActionError } from "../../components/ApiStatus";
 import { errorMessage } from "../../lib/api/client";
@@ -158,6 +159,7 @@ export default function CopilotPage() {
               Suggested questions
             </div>
             <div className="btn-row">
+              {suggestions.data === null && suggestions.loading ? <SkChips /> : null}
               {(suggestions.data ?? []).map((s) => (
                 <button key={s} className="btn" disabled={Boolean(pending)} onClick={() => void ask(s)}>
                   {s}

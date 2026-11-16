@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useWorkbench } from "./Workbench";
 import { API_BASE_URL } from "../lib/api/client";
 import type { ApiState } from "../lib/api/useApi";
+import { SkCard, SkScreen } from "./Skeleton";
 
 /** Top-of-page banner when the API is unreachable or its database is down. */
 export function ApiBanner() {
@@ -28,16 +29,17 @@ export function ApiBanner() {
 }
 
 /**
- * Renders children once every query has data. Shows a loading note first and
- * an error note with retry if any query fails.
+ * Renders children once every query has data. Shows the screen's skeleton
+ * first and an error note with retry if any query fails.
  */
 export function Loaded({
   queries,
-  label = "Loading live data from the Resolve AI API…",
+  skeleton,
   children,
 }: {
   queries: ApiState<unknown>[];
-  label?: string;
+  /** Placeholder shaped like the screen; defaults to a generic card skeleton. */
+  skeleton?: ReactNode;
   children: () => ReactNode;
 }) {
   const failed = queries.find((q) => q.error && q.data === null);
@@ -58,9 +60,13 @@ export function Loaded({
   }
   if (queries.some((q) => q.data === null)) {
     return (
-      <div className="note" data-tone="neutral" aria-busy="true">
-        <span className="body-sm muted">{label}</span>
-      </div>
+      <>
+        {skeleton ?? (
+          <SkScreen>
+            <SkCard lines={6} />
+          </SkScreen>
+        )}
+      </>
     );
   }
   return <>{children()}</>;
