@@ -5,7 +5,7 @@
  * defaults to the hosted API, so a plain `npm run dev` shows live data.
  */
 export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://resolve-ai-production-8093.up.railway.app/api/v1"
+  process.env.NEXT_PUBLIC_API_BASE_URL!
 ).replace(/\/+$/, "");
 
 export interface ApiErrorDetail {
