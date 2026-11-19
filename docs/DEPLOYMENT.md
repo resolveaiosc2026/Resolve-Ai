@@ -82,3 +82,33 @@ Commit the generated files with the code change.
 | `/simulation/*` returns 404                       | `ENABLE_SIMULATION` isn't `true`                                                      |
 | `Connection terminated due to connection timeout` | Neon waking up or a network blip; retry. The seed rolls back cleanly                  |
 | Copilot/replies use `keyword_fallback`            | `OPENROUTER_API_KEY` missing or OpenRouter unreachable (by design, nothing breaks)    |
+
+## 8. Frontend on Vercel: workbench sign-in (Auth.js)
+
+The workbench pages (`/detect` … `/copilot`) require a sign-in with the demo username and password; `/` and `/signin` are public. There is one account, defined by environment variables (no user table). Sessions are an encrypted cookie (JWT, 30 days). The backend does **not** check sessions: sign-in protects the UI only, and anyone can still call the API directly. Decisions are still recorded under the shared reviewer `analyst.hui`.
+
+### Environment variables (Vercel → Settings → Environment Variables, and `frontend/.env.local`)
+
+| Variable                   | Notes                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL` | API base with `/api/v1`. Required                                                       |
+| `AUTH_SECRET`              | `npx auth secret` or `openssl rand -base64 33`. Different value per environment. Secret |
+| `AUTH_DEMO_USERNAME`       | e.g. `analyst.hui` (case-insensitive at sign-in)                                        |
+| `AUTH_DEMO_PASSWORD`       | Long random password; give it to the judges privately. Secret                           |
+| `AUTH_TRUST_HOST`          | `true`, only for `npm start` outside Vercel. Not needed on Vercel or with `npm run dev` |
+
+Set them for Production (and Preview if you use preview URLs), then redeploy. Changing the password or `AUTH_SECRET` and redeploying signs everyone out.
+
+### Check after deploy
+
+1. Private window → `https://resolve-ai-omega.vercel.app/detect` → redirected to `/signin`.
+2. Sign in with the demo account → back on `/detect`, initials in the topbar.
+3. `https://resolve-ai-omega.vercel.app/api/auth/session` → `{"user":{"name":"analyst.hui",…},"expires":…}`.
+
+| Symptom                                          | Cause / fix                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `/signin` says "Sign-in isn't set up…", fields greyed out | `AUTH_SECRET`, `AUTH_DEMO_USERNAME` or `AUTH_DEMO_PASSWORD` missing; redeploy after adding |
+| "That username and password don't match"         | Typo, or the Vercel value has stray spaces/quotes                            |
+| `UntrustedHost` in logs when running `npm start` | Set `AUTH_TRUST_HOST=true` (not needed on Vercel)                            |
+
+Known limit: there is no lockout or rate limit on sign-in attempts, so use a long random password.

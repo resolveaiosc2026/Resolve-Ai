@@ -11,7 +11,7 @@ This is the one document to hand to a frontend developer **or a coding agent** b
 | Postman collection + environments | `docs/postman/` (import all three files)                        |
 | Endpoint-by-endpoint reference    | `docs/api-contract.md`                                          |
 
-> **Status (2026-11-12):** the workbench in `frontend/` is wired to this API. The client lives in `frontend/lib/api/` (`client.ts` fetch wrapper, `endpoints.ts` one function per endpoint, `adapters.ts` API → `lib/types.ts` view models, `useApi.ts` hooks). Base URL: `NEXT_PUBLIC_API_BASE_URL` (defaults to the production URL). The bundled `frontend/data/` JSON is kept only for the backend's seed parity check.
+> **Status (2026-11-12):** the workbench in `frontend/` is wired to this API. The client lives in `frontend/lib/api/` (`client.ts` fetch wrapper, `endpoints.ts` one function per endpoint, `adapters.ts` API → `lib/types.ts` view models, `useApi.ts` hooks). Base URL: `NEXT_PUBLIC_API_BASE_URL` (required, including `/api/v1`). Since F15 the workbench pages sit behind a username/password sign-in (Auth.js, see `docs/DEPLOYMENT.md` §8); the landing page `/` is public. The bundled `frontend/data/` JSON is kept only for the backend's seed parity check.
 
 > **For agents:** prefer `docs/openapi.json` as the source of truth for request/response shapes. Every response example in it was captured from the real API.
 
@@ -20,7 +20,7 @@ This is the one document to hand to a frontend developer **or a coding agent** b
 ## 1. Ground rules
 
 - **All data is synthetic** (Orange Summer Challenge 2026 MVP). Show the `simulated: true` labels where the API provides them.
-- **No authentication** in the MVP. Write actions take a `reviewerName` (the analyst's name) in the body.
+- **No API authentication** in the MVP. Write actions take a `reviewerName` (the analyst's name) in the body. The frontend's sign-in protects the UI only: the API does not check sessions, and the workbench still sends the shared demo reviewer `analyst.hui`.
 - **CORS** allows `https://resolve-ai-omega.vercel.app` and `http://localhost:3000` (plus any origins added to `CORS_ORIGIN` on Railway).
 - **Resolve AI never contacts customers.** It hands requests and interventions to Orange's existing channels. UI wording should say _"handed off to Orange SMS"_, never _"sent"_.
 - **The LLM is never the source of truth.** Numbers come from deterministic backend logic. The AI only classifies reply text and phrases Copilot answers.
