@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { ApiBanner } from "./ApiStatus";
 import { SkLine } from "./Skeleton";
 import { useWorkbench } from "./Workbench";
-import { ANALYST } from "../lib/datasets";
+import { signOutAction } from "../lib/auth-actions";
 import { getDetectSummary } from "../lib/api/endpoints";
 import { useApi } from "../lib/api/useApi";
 
@@ -21,13 +21,28 @@ export const STAGES = [
 
 type NavItem = { key: string; label: string; href: string };
 
+/** The signed-in demo user (F15). Approvals are still recorded as the shared demo reviewer. */
+export interface ShellUser {
+  name: string | null;
+  email: string | null;
+}
+
+function initials(user: ShellUser): string {
+  const source = user.name?.trim() || user.email?.split("@")[0] || "";
+  const parts = source.split(/[\s._-]+/).filter(Boolean);
+  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : source.slice(0, 2);
+  return letters.toUpperCase() || "?";
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+
 const NAV: { group: string; items: readonly NavItem[] }[] = [
   { group: "Workbench", items: STAGES.slice(0, 4) },
   { group: "Evidence", items: STAGES.slice(4) },
   { group: "Ask", items: [{ key: "copilot", label: "Copilot", href: "/copilot" }] },
 ];
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, user }: { children: ReactNode; user: ShellUser }) {
   const pathname = usePathname();
   const activeIndex = STAGES.findIndex((s) => pathname.startsWith(s.href));
   const { simulationOn, health } = useWorkbench();
@@ -83,9 +98,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
             ) : null}
             <span className="tag-synthetic">Synthetic data — pilot demo</span>
-            <span className="avatar" title={ANALYST}>
-              AH
+            <span className="avatar" title={user.name ?? user.email ?? "Signed in"}>
+              {initials(user)}
             </span>
+            <form action={signOutAction}>
+              <button type="submit" className="btn" data-variant="ghost">
+                Sign out
+              </button>
+            </form>
           </div>
         </header>
 
@@ -107,6 +127,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ApiBanner />
           {children}
         </div>
+
+        <footer className="app-footer">
+          <span>Resolve AI · Orange Summer Challenge 2026 entry · Synthetic data, no real subscriber records</span>
+          <nav aria-label="Footer">
+            <Link href="/">Home</Link>
+            <a href={`${API_BASE}/docs`} target="_blank" rel="noopener noreferrer">
+              API reference
+            </a>
+          </nav>
+        </footer>
       </div>
     </div>
   );

@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { PageHead } from "../../components/Shell";
-import { Card } from "../../components/ui";
-import { SkChips } from "../../components/Skeleton";
-import { Icon } from "../../components/Icon";
-import { ActionError } from "../../components/ApiStatus";
-import { errorMessage } from "../../lib/api/client";
-import { askCopilot, getCopilotSuggestions } from "../../lib/api/endpoints";
-import type { ApiCopilotAnswer } from "../../lib/api/types";
-import { useApi } from "../../lib/api/useApi";
+import { PageHead } from "../../../components/Shell";
+import { Card } from "../../../components/ui";
+import { SkChips } from "../../../components/Skeleton";
+import { Icon } from "../../../components/Icon";
+import { ActionError } from "../../../components/ApiStatus";
+import { errorMessage } from "../../../lib/api/client";
+import { askCopilot, getCopilotSuggestions } from "../../../lib/api/endpoints";
+import type { ApiCopilotAnswer } from "../../../lib/api/types";
+import { useApi } from "../../../lib/api/useApi";
 
 export default function CopilotPage() {
   const [draft, setDraft] = useState("");

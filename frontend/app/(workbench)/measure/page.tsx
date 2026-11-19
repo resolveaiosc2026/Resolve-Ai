@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PageHead } from "../../components/Shell";
-import { MeasureSkeleton } from "../../components/Skeleton";
-import { PrePostChart } from "../../components/Charts";
-import { Card } from "../../components/ui";
-import { Icon } from "../../components/Icon";
-import { ActionError, Loaded, SimulationOffNote } from "../../components/ApiStatus";
-import { useWorkbench } from "../../components/Workbench";
-import { formatStamp, round } from "../../lib/analytics";
-import { ANALYST, MEASURE_EXAMPLE } from "../../lib/datasets";
+import { PageHead } from "../../../components/Shell";
+import { MeasureSkeleton } from "../../../components/Skeleton";
+import { PrePostChart } from "../../../components/Charts";
+import { Card } from "../../../components/ui";
+import { Icon } from "../../../components/Icon";
+import { ActionError, Loaded, SimulationOffNote } from "../../../components/ApiStatus";
+import { useWorkbench } from "../../../components/Workbench";
+import { formatStamp, round } from "../../../lib/analytics";
+import { ANALYST, MEASURE_EXAMPLE } from "../../../lib/datasets";
 import {
   advanceIntervention,
   getCustomer,
@@ -19,10 +19,10 @@ import {
   getReport,
   recordOutcome,
   type Scenario,
-} from "../../lib/api/endpoints";
-import type { ApiInterventionRow } from "../../lib/api/types";
-import { useAction, useApi } from "../../lib/api/useApi";
-import type { MeasureView, QueueRow } from "../../lib/types";
+} from "../../../lib/api/endpoints";
+import type { ApiInterventionRow } from "../../../lib/api/types";
+import { useAction, useApi } from "../../../lib/api/useApi";
+import type { MeasureView, QueueRow } from "../../../lib/types";
 
 const SCENARIOS: { value: "" | Scenario; label: string }[] = [
   { value: "", label: "Scripted (from predicted recovery)" },

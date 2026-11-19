@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { PageHead } from "../../components/Shell";
-import { ReportSkeleton } from "../../components/Skeleton";
-import { Bar, Card, Kpi } from "../../components/ui";
-import { ActionError, Loaded } from "../../components/ApiStatus";
-import { formatStamp } from "../../lib/analytics";
-import { ANALYST } from "../../lib/datasets";
-import type { ReportView } from "../../lib/api/adapters";
-import { correctReason, getReasons, getReport } from "../../lib/api/endpoints";
-import { useAction, useApi } from "../../lib/api/useApi";
-import type { ReasonId } from "../../lib/types";
+import { PageHead } from "../../../components/Shell";
+import { ReportSkeleton } from "../../../components/Skeleton";
+import { Bar, Card, Kpi } from "../../../components/ui";
+import { ActionError, Loaded } from "../../../components/ApiStatus";
+import { formatStamp } from "../../../lib/analytics";
+import { ANALYST } from "../../../lib/datasets";
+import type { ReportView } from "../../../lib/api/adapters";
+import { correctReason, getReasons, getReport } from "../../../lib/api/endpoints";
+import { useAction, useApi } from "../../../lib/api/useApi";
+import type { ReasonId } from "../../../lib/types";
 
 const REASON_LABELS: Record<ReasonId, string> = {
   affordability: "Affordability",

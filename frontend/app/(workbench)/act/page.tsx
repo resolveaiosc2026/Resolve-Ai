@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PageHead } from "../../components/Shell";
-import { ActSkeleton } from "../../components/Skeleton";
-import { Card, ConfidenceChip } from "../../components/ui";
-import { ActionError, Loaded } from "../../components/ApiStatus";
-import { useWorkbench } from "../../components/Workbench";
-import { confidenceBand } from "../../lib/analytics";
-import { ANALYST } from "../../lib/datasets";
-import type { ClassificationResult } from "../../lib/api/adapters";
-import { DELIVERY_CHANNELS, channelId } from "../../lib/api/channels";
+import { PageHead } from "../../../components/Shell";
+import { ActSkeleton } from "../../../components/Skeleton";
+import { Card, ConfidenceChip } from "../../../components/ui";
+import { ActionError, Loaded } from "../../../components/ApiStatus";
+import { useWorkbench } from "../../../components/Workbench";
+import { confidenceBand } from "../../../lib/analytics";
+import { ANALYST } from "../../../lib/datasets";
+import type { ClassificationResult } from "../../../lib/api/adapters";
+import { DELIVERY_CHANNELS, channelId } from "../../../lib/api/channels";
 import {
   approveAction,
   ensurePendingRecommendation,
@@ -18,9 +18,9 @@ import {
   getReasons,
   getRecommendation,
   rejectAction,
-} from "../../lib/api/endpoints";
-import { useAction, useApi } from "../../lib/api/useApi";
-import type { Action } from "../../lib/types";
+} from "../../../lib/api/endpoints";
+import { useAction, useApi } from "../../../lib/api/useApi";
+import type { Action } from "../../../lib/types";
 
 const WINDOWS = ["Today 16:00–18:00", "Tomorrow 09:00–11:00", "Next care shift"];
 

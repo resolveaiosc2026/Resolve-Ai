@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { PageHead } from "../../components/Shell";
-import { RecommendSkeleton } from "../../components/Skeleton";
-import { Loaded } from "../../components/ApiStatus";
-import { Card, ConfidenceChip, Tick } from "../../components/ui";
-import { useWorkbench } from "../../components/Workbench";
-import { confidenceBand } from "../../lib/analytics";
-import type { ClassificationResult } from "../../lib/api/adapters";
-import { getCustomer, getReasons, getRecommendation } from "../../lib/api/endpoints";
-import { useApi } from "../../lib/api/useApi";
-import type { QueueRow, RecommendationView } from "../../lib/types";
+import { PageHead } from "../../../components/Shell";
+import { RecommendSkeleton } from "../../../components/Skeleton";
+import { Loaded } from "../../../components/ApiStatus";
+import { Card, ConfidenceChip, Tick } from "../../../components/ui";
+import { useWorkbench } from "../../../components/Workbench";
+import { confidenceBand } from "../../../lib/analytics";
+import type { ClassificationResult } from "../../../lib/api/adapters";
+import { getCustomer, getReasons, getRecommendation } from "../../../lib/api/endpoints";
+import { useApi } from "../../../lib/api/useApi";
+import type { QueueRow, RecommendationView } from "../../../lib/types";
 
 export default function RecommendPage() {
   const { caseId } = useWorkbench();

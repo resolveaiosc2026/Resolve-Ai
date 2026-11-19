@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PageHead } from "../../components/Shell";
-import { DetectSkeleton } from "../../components/Skeleton";
-import { Loaded } from "../../components/ApiStatus";
-import { BaselineSparkline, StackedBand } from "../../components/Charts";
-import { Bar, Card, ConfidenceChip, Kpi, StatusChip } from "../../components/ui";
-import { useWorkbench } from "../../components/Workbench";
-import { confidenceBand } from "../../lib/analytics";
-import { getDetectSummary, getQueue, getReasons, getRecommendation } from "../../lib/api/endpoints";
-import { useApi } from "../../lib/api/useApi";
+import { PageHead } from "../../../components/Shell";
+import { DetectSkeleton } from "../../../components/Skeleton";
+import { Loaded } from "../../../components/ApiStatus";
+import { BaselineSparkline, StackedBand } from "../../../components/Charts";
+import { Bar, Card, ConfidenceChip, Kpi, StatusChip } from "../../../components/ui";
+import { useWorkbench } from "../../../components/Workbench";
+import { confidenceBand } from "../../../lib/analytics";
+import { getDetectSummary, getQueue, getReasons, getRecommendation } from "../../../lib/api/endpoints";
+import { useApi } from "../../../lib/api/useApi";
 
 export default function DetectPage() {
   const { caseId, run } = useWorkbench();
