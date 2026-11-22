@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { API_BASE_HREF, SIGN_IN_HREF, WORKBENCH_HREF } from "./links";
+import { SIGN_IN_HREF, WORKBENCH_HREF } from "./links";
 
 const LOOP = [
   { label: "Detect", href: "/detect" },
@@ -21,7 +21,6 @@ export function SiteFooter() {
               <span className="lp-logo-mark" aria-hidden="true">
                 R
               </span>
-              Resolve AI
             </Link>
             <p>
               A retention workbench for data bundles. It finds customers whose use is dropping, works out why,
@@ -61,26 +60,6 @@ export function SiteFooter() {
             </ol>
           </nav>
 
-          <nav className="lp-footer-col" aria-label="Developers">
-            <h2>Developers</h2>
-            <ul>
-              <li>
-                <a href={`${API_BASE_HREF}/docs`} target="_blank" rel="noopener noreferrer">
-                  API reference
-                </a>
-              </li>
-              <li>
-                <a href={`${API_BASE_HREF}/openapi.json`} target="_blank" rel="noopener noreferrer">
-                  OpenAPI spec
-                </a>
-              </li>
-              <li>
-                <a href={`${API_BASE_HREF}/health`} target="_blank" rel="noopener noreferrer">
-                  API status
-                </a>
-              </li>
-            </ul>
-          </nav>
         </div>
 
         <div className="lp-footer-base">

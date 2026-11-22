@@ -28,7 +28,6 @@ export function LandingNav() {
           <span className="lp-logo-mark" aria-hidden="true">
             R
           </span>
-          <span>Resolve AI</span>
         </Link>
 
         <nav className="lp-nav-links" aria-label="Primary">
