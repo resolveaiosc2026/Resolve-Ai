@@ -11,7 +11,7 @@ This is the one document to hand to a frontend developer **or a coding agent** b
 | Postman collection + environments | `docs/postman/` (import all three files)                        |
 | Endpoint-by-endpoint reference    | `docs/api-contract.md`                                          |
 
-> **Status (2026-11-12):** the workbench in `frontend/` is wired to this API. The client lives in `frontend/lib/api/` (`client.ts` fetch wrapper, `endpoints.ts` one function per endpoint, `adapters.ts` API → `lib/types.ts` view models, `useApi.ts` hooks). Base URL: `NEXT_PUBLIC_API_BASE_URL` (required, including `/api/v1`). Since F15 the workbench pages sit behind a username/password sign-in (Auth.js, see `docs/DEPLOYMENT.md` §8); the landing page `/` is public. The bundled `frontend/data/` JSON is kept only for the backend's seed parity check.
+> **Status (2026-11-12):** the workbench in `frontend/` is wired to this API. The client lives in `frontend/lib/api/` (`client.ts` fetch wrapper, `endpoints.ts` one function per endpoint, `adapters.ts` API → `lib/types.ts` view models, `useApi.ts` hooks). Base URL: `NEXT_PUBLIC_API_BASE_URL` (required, including `/api/v1`). Since F15 the workbench pages sit behind Google sign-in (Auth.js, see `docs/DEPLOYMENT.md` §8); the landing page `/` is public. The bundled `frontend/data/` JSON is kept only for the backend's seed parity check.
 
 > **For agents:** prefer `docs/openapi.json` as the source of truth for request/response shapes. Every response example in it was captured from the real API.
 
