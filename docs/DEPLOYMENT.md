@@ -106,7 +106,7 @@ After the team configures a domain it controls, use its HTTPS origin and callbac
 
 | Variable | Notes |
 | --- | --- |
-| NEXT_PUBLIC_API_BASE_URL | API base with /api/v1. Required. |
+| NEXT_PUBLIC_API_BASE_URL | Set Vercel Production to `https://resolve-ai-production-8093.up.railway.app/api/v1`. The local `.env.local` value should be `http://localhost:4000/api/v1`. Next.js embeds this public value at build time, so redeploy after changing it. Production builds also fall back to the Railway URL if this variable is missing or points to a loopback address. |
 | AUTH_SECRET | Generate with npx auth secret or openssl rand -base64 33. Use a different value per environment. Secret. |
 | AUTH_GOOGLE_ID | Google OAuth Web application client ID. Use the testing client locally and in Preview; production client in Production. |
 | AUTH_GOOGLE_SECRET | Google OAuth Web application client secret. Server-only secret. |
@@ -122,10 +122,12 @@ For local development, copy .env.example to .env.local without overwriting exist
 2. Click **Continue with Google**, finish the Google flow, and confirm the visitor returns to /detect with their initials in the topbar.
 3. Open /api/auth/session; it should expose the app session with the display name and an empty email field, not Google tokens.
 4. Sign out, then open /report; it should redirect to /signin again.
+5. Open a workbench page and inspect DevTools → Network. API requests must use `resolve-ai-production-8093.up.railway.app`, never localhost.
 
 | Symptom | Cause / fix |
 | --- | --- |
 | /signin shows the setup message and disables the button | One or more of AUTH_SECRET, AUTH_GOOGLE_ID, or AUTH_GOOGLE_SECRET is missing; set them in the server environment and redeploy. |
 | Google returns redirect_uri_mismatch | Add the exact callback URI for that environment to its Google OAuth client. |
 | Google says the app is not available to this account | In Testing status, add the account to the test-user list; for open production access, complete Google's production branding and domain requirements. |
+| Production API requests target localhost | Set Vercel Production `NEXT_PUBLIC_API_BASE_URL` to `https://resolve-ai-production-8093.up.railway.app/api/v1` and redeploy. The production bundle has a loopback fallback, but Vercel should still have the correct value. |
 | UntrustedHost when running npm start locally | Set AUTH_TRUST_HOST=true for that local process. Do not add it to Vercel unless Auth.js reports it is needed. |

@@ -11,7 +11,7 @@ This is the one document to hand to a frontend developer **or a coding agent** b
 | Postman collection + environments | `docs/postman/` (import all three files)                        |
 | Endpoint-by-endpoint reference    | `docs/api-contract.md`                                          |
 
-> **Status (2026-11-12):** the workbench in `frontend/` is wired to this API. The client lives in `frontend/lib/api/` (`client.ts` fetch wrapper, `endpoints.ts` one function per endpoint, `adapters.ts` API → `lib/types.ts` view models, `useApi.ts` hooks). Base URL: `NEXT_PUBLIC_API_BASE_URL` (required, including `/api/v1`). Since F15 the workbench pages sit behind Google sign-in (Auth.js, see `docs/DEPLOYMENT.md` §8); the landing page `/` is public. The bundled `frontend/data/` JSON is kept only for the backend's seed parity check.
+> **Status (2026-11-12):** the workbench in `frontend/` is wired to this API. The client lives in `frontend/lib/api/` (`client.ts` fetch wrapper, `endpoints.ts` one function per endpoint, `adapters.ts` API → `lib/types.ts` view models, `useApi.ts` hooks). Base URL: `NEXT_PUBLIC_API_BASE_URL` (include `/api/v1`); local development defaults to localhost, while production builds fall back to the deployed Railway API if the configured URL is missing or points to loopback. Since F15 the workbench pages sit behind Google sign-in (Auth.js, see `docs/DEPLOYMENT.md` §8); the landing page `/` is public. The bundled `frontend/data/` JSON is kept only for the backend's seed parity check.
 
 > **For agents:** prefer `docs/openapi.json` as the source of truth for request/response shapes. Every response example in it was captured from the real API.
 
@@ -117,9 +117,10 @@ Postman's **"0. Demo journey"** folder runs exactly this with the Collection Run
 
 ```ts
 // lib/api.ts
-const BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "https://resolve-ai-production-8093.up.railway.app/api/v1";
+// The app's shared resolver is in frontend/lib/api/client.ts.
+import { API_BASE_URL } from "./client";
+
+const BASE = API_BASE_URL;
 
 export class ApiError extends Error {
   constructor(
