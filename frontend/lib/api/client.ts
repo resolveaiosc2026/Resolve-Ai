@@ -1,11 +1,37 @@
 /**
  * Minimal fetch wrapper for the Resolve AI API (see docs/API.md §6).
  *
- * The base URL is inlined at build time from NEXT_PUBLIC_API_BASE_URL and
- * defaults to the hosted API, so a plain `npm run dev` shows live data.
+ * NEXT_PUBLIC_API_BASE_URL is inlined at build time. Keep localhost usable in
+ * development, but never let a production bundle send API calls to loopback.
  */
+const LOCAL_API_BASE_URL = "http://localhost:4000/api/v1";
+const PRODUCTION_API_BASE_URL = "https://resolve-ai-production-8093.up.railway.app/api/v1";
+const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+const isProduction = process.env.NODE_ENV === "production";
+
+function isLoopbackApiUrl(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return (
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      hostname.startsWith("127.") ||
+      hostname === "0.0.0.0" ||
+      hostname === "::1" ||
+      hostname === "[::1]"
+    );
+  } catch {
+    return false;
+  }
+}
+
+const useProductionFallback =
+  isProduction && (!configuredApiBaseUrl || isLoopbackApiUrl(configuredApiBaseUrl));
+
 export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL!
+  useProductionFallback
+    ? PRODUCTION_API_BASE_URL
+    : (configuredApiBaseUrl || LOCAL_API_BASE_URL)
 ).replace(/\/+$/, "");
 
 export interface ApiErrorDetail {

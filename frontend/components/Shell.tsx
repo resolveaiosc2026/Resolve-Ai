@@ -7,6 +7,7 @@ import { ApiBanner } from "./ApiStatus";
 import { SkLine } from "./Skeleton";
 import { useWorkbench } from "./Workbench";
 import { signOutAction } from "../lib/auth-actions";
+import { API_BASE_URL } from "../lib/api/client";
 import { getDetectSummary } from "../lib/api/endpoints";
 import { useApi } from "../lib/api/useApi";
 
@@ -33,8 +34,6 @@ function initials(user: ShellUser): string {
   const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : source.slice(0, 2);
   return letters.toUpperCase() || "?";
 }
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 const NAV: { group: string; items: readonly NavItem[] }[] = [
   { group: "Workbench", items: STAGES.slice(0, 4) },
@@ -132,7 +131,7 @@ export function AppShell({ children, user }: { children: ReactNode; user: ShellU
           <span>Resolve AI · Orange Summer Challenge 2026 entry · Synthetic data, no real subscriber records</span>
           <nav aria-label="Footer">
             <Link href="/">Home</Link>
-            <a href={`${API_BASE}/docs`} target="_blank" rel="noopener noreferrer">
+            <a href={`${API_BASE_URL}/docs`} target="_blank" rel="noopener noreferrer">
               API reference
             </a>
           </nav>
