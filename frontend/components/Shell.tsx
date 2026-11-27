@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -51,9 +52,7 @@ export function AppShell({ children, user }: { children: ReactNode; user: ShellU
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            R
-          </span>
+          <Image className="brand-mark" src="/logo.png" alt="" width={40} height={40} priority />
           <span>
             <span className="brand-name">Resolve AI</span>
             <span className="brand-sub">RETENTION WORKBENCH</span>

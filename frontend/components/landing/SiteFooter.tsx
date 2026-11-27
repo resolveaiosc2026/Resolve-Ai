@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { SIGN_IN_HREF, WORKBENCH_HREF } from "./links";
 
@@ -18,9 +19,7 @@ export function SiteFooter() {
         <div className="lp-footer-grid">
           <div className="lp-footer-about">
             <Link href="/" className="lp-footer-brand" aria-label="Resolve AI home">
-              <span className="lp-logo-mark" aria-hidden="true">
-                R
-              </span>
+              <Image className="lp-logo-mark" src="/logo.png" alt="" width={42} height={42} />
             </Link>
             <p>
               A retention workbench for data bundles. It finds customers whose use is dropping, works out why,
@@ -65,7 +64,7 @@ export function SiteFooter() {
         <div className="lp-footer-base">
           <p>Orange Summer Challenge 2026 entry. Not an Orange product or service.</p>
           <p>Synthetic data only. No real subscriber records are used.</p>
-          <p>© 2026 Resolve AI team</p>
+          <p>© {new Date().getFullYear()} Resolve AI team</p>
         </div>
       </div>
     </footer>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SIGN_IN_HREF, WORKBENCH_HREF } from "./links";
@@ -25,9 +26,7 @@ export function LandingNav() {
     <header className="lp-nav" data-open={open}>
       <div className="lp-container lp-nav-inner">
         <Link href="/" className="lp-logo" aria-label="Resolve AI home">
-          <span className="lp-logo-mark" aria-hidden="true">
-            R
-          </span>
+          <Image className="lp-logo-mark" src="/logo.png" alt="" width={42} height={42} priority />
         </Link>
 
         <nav className="lp-nav-links" aria-label="Primary">

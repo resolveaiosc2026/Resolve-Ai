@@ -153,27 +153,10 @@ html:has(.lp) {
   letter-spacing: -0.02em;
 }
 .lp-logo-mark {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
+  display: block;
+  flex: none;
   width: 42px;
   height: 42px;
-  border-radius: 9px;
-  background: var(--lp-orange);
-  color: var(--lp-ink);
-  font-size: 25px;
-  font-weight: 800;
-  letter-spacing: -0.06em;
-}
-.lp-logo-mark::after {
-  position: absolute;
-  right: 6px;
-  bottom: 5px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--lp-ink);
-  content: "";
 }
 .lp-nav-links {
   display: flex;
