@@ -55,7 +55,9 @@ function ActView({ queue, cls, rec }: { queue: Queue; cls: ClassificationResult;
 
   const chosen = picked ?? rec.recommended?.action ?? null;
   const offChannel = chosen ? channel !== chosen.channel : false;
-  const alreadySignedOff = rec.current?.status === "approved" || row.status === "action_done";
+  // Only a real approval record counts: some seeded cases carry an `action_done` queue status
+  // without one, and those must still be approvable.
+  const alreadySignedOff = rec.current?.status === "approved";
   const canDecide = Boolean(chosen) && !alreadySignedOff && !action.pending && !done;
 
   const decide = async (decision: "approved" | "review") => {
@@ -293,7 +295,32 @@ function ActView({ queue, cls, rec }: { queue: Queue; cls: ClassificationResult;
             You decide. Resolve AI will not act without approval.
           </div>
           <div className="decision-sub">
-            Every action is logged against your name and recorded by the Resolve AI API.
+            {done ? (
+              <>
+                {done.decision === "review"
+                  ? "Sent to human review. "
+                  : `${done.decision === "changed" ? "Changed and approved" : "Approved"}: handed off as ${done.reference}. `}
+                <Link href={done.decision === "review" ? "/understand" : "/measure"} style={{ textDecoration: "underline" }}>
+                  {done.decision === "review" ? "Review the reason" : "Open the action record"}
+                </Link>
+              </>
+            ) : alreadySignedOff ? (
+              <>
+                Already signed off, so there is nothing to approve.{" "}
+                <Link href="/measure" style={{ textDecoration: "underline" }}>
+                  Open the action record
+                </Link>
+              </>
+            ) : !chosen ? (
+              <>
+                Nothing to sign off yet: the reason must be classified first.{" "}
+                <Link href="/understand" style={{ textDecoration: "underline" }}>
+                  Go to Understand
+                </Link>
+              </>
+            ) : (
+              "Every action is logged against your name and recorded by the Resolve AI API."
+            )}
           </div>
           <ActionError error={action.error} />
         </div>

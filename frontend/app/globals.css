@@ -175,14 +175,9 @@ a {
   padding: 0 var(--md) var(--lg);
 }
 .brand-mark {
+  display: block;
   width: 28px;
   height: 28px;
-  background: var(--primary);
-  color: var(--on-primary);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 15px;
   flex: none;
 }
 .brand-name {
@@ -589,7 +584,7 @@ tbody tr[data-selected="true"] td:first-child {
   justify-content: center;
   gap: 8px;
 }
-.btn:hover {
+.btn:hover:not(:disabled) {
   background: var(--ink);
   color: var(--on-ink);
 }
@@ -598,17 +593,21 @@ tbody tr[data-selected="true"] td:first-child {
   border-color: var(--primary);
   color: var(--on-primary);
 }
-.btn[data-variant="primary"]:hover {
+.btn[data-variant="primary"]:hover:not(:disabled) {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--on-ink);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .btn[data-variant="ghost"] {
   border-color: transparent;
   padding-left: 4px;
   padding-right: 4px;
 }
-.btn[data-variant="ghost"]:hover {
+.btn[data-variant="ghost"]:hover:not(:disabled) {
   background: var(--neutral);
   color: var(--ink);
 }
@@ -620,7 +619,7 @@ tbody tr[data-selected="true"] td:first-child {
   background: transparent;
   color: var(--on-ink);
 }
-.btn[data-on-dark="true"]:hover {
+.btn[data-on-dark="true"]:hover:not(:disabled) {
   background: var(--on-ink);
   color: var(--ink);
 }
@@ -1085,12 +1084,6 @@ body {
 .brand-mark {
   width: 40px;
   height: 40px;
-  border-radius: 5px;
-  background: var(--primary);
-  color: #101010;
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.08em;
 }
 .brand-name {
   display: block;
@@ -1185,7 +1178,7 @@ tbody tr[data-selected="true"] td { background: #fff5ed; }
 .bar > span { border-radius: inherit; }
 .stacked { border-radius: 6px; overflow: hidden; }
 .btn { border-width: 1px; border-radius: 6px; transition: background .16s ease, color .16s ease, transform .16s ease; }
-.btn:hover { transform: translateY(-1px); }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
 .btn[data-variant="primary"] { color: #111; }
 .detail { box-shadow: 0 8px 24px rgba(0,0,0,.07); }
 .highlight { border-radius: 7px; border-color: #f4d5c0; border-left-width: 4px; }
@@ -1206,7 +1199,7 @@ select:focus, input:focus, textarea:focus { outline-color: var(--primary); }
     overflow: hidden;
   }
   .brand { padding: 0; }
-  .brand-mark { width: 34px; height: 34px; font-size: 21px; }
+  .brand-mark { width: 34px; height: 34px; }
   .brand-sub { display: none; }
   .nav {
     flex-direction: row;

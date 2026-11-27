@@ -12,6 +12,8 @@ import { getCustomer, getReasons, getRecommendation } from "../../../lib/api/end
 import { useApi } from "../../../lib/api/useApi";
 import type { QueueRow, RecommendationView } from "../../../lib/types";
 
+type Rec = Awaited<ReturnType<typeof getRecommendation>>;
+
 export default function RecommendPage() {
   const { caseId } = useWorkbench();
   const row = useApi(() => getCustomer(caseId), `customer:${caseId}`);
@@ -30,9 +32,19 @@ function historyN(rec: RecommendationView, actionName: string, reasonLabel: stri
   return Number(/n=(\d+)/.exec(h?.outcome ?? "")?.[1] ?? 0);
 }
 
-function RecommendView({ row, cls, rec }: { row: QueueRow; cls: ClassificationResult; rec: RecommendationView }) {
+function RecommendView({ row, cls, rec }: { row: QueueRow; cls: ClassificationResult; rec: Rec }) {
   const customer = row.customer;
   const best = rec.recommended;
+  const signedOff = rec.current?.status === "approved";
+  const nextStep = signedOff ? (
+    <Link href="/measure" className="btn" data-variant="primary">
+      Open the action record
+    </Link>
+  ) : best ? (
+    <Link href="/act" className="btn" data-variant="primary">
+      Review and sign off
+    </Link>
+  ) : null;
 
   return (
     <>
@@ -40,16 +52,21 @@ function RecommendView({ row, cls, rec }: { row: QueueRow; cls: ClassificationRe
         stage="Stage 3 · Recommend"
         title={`Recommended action for ${customer.id}`}
         sub="The action is derived from the classified reason, this customer's eligibility, and ranked campaign history. It is a suggestion for a human to approve — nothing is sent from this screen."
-        actions={
-          best ? (
-            <Link href="/act" className="btn" data-variant="primary">
-              Review and sign off
-            </Link>
-          ) : null
-        }
+        actions={nextStep}
       />
 
-      {!best ? (
+      {signedOff ? (
+        <div className="note" data-tone="neutral" style={{ marginBottom: 24 }}>
+          <div className="title">Already signed off</div>
+          <p className="body-sm" style={{ marginTop: 6 }}>
+            An action for this case was approved and handed off to Orange. Its result is tracked
+            in Measure.{" "}
+            <Link href="/measure" style={{ textDecoration: "underline" }}>
+              Open the action record
+            </Link>
+          </p>
+        </div>
+      ) : !best ? (
         <div className="note" data-tone="neutral" style={{ marginBottom: 24 }}>
           <div className="title">No action is suggested yet</div>
           <p className="body-sm" style={{ marginTop: 6 }}>
@@ -193,11 +210,7 @@ function RecommendView({ row, cls, rec }: { row: QueueRow; cls: ClassificationRe
             </div>
 
             <div className="btn-row">
-              {best ? (
-                <Link href="/act" className="btn" data-variant="primary">
-                  Review and sign off
-                </Link>
-              ) : null}
+              {nextStep}
               <Link href="/detect" className="btn" data-variant="ghost">
                 Back to the queue
               </Link>
